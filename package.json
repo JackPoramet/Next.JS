@@ -6,22 +6,43 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "setup-db": "node setup-db-simple.js",
+    "seed": "node seed-simple.js",
+    "db:reset": "npm run setup-db && npm run seed",
+    "db:drop": "node drop-all-tables.js",
+    "db:fresh": "npm run db:drop && npm run db:reset",
+    "db:check": "node check-db-connection.js",
+    "db:list-users": "node scripts/list-users.js",
+    "db:list-users-ts": "tsx scripts/list-users.ts",
+    "db:test-login": "node scripts/test-last-login.js",
+    "migrate:last-login": "node scripts/migrate-last-login.js",
+    "generate-secrets": "node generate-secrets.js"
   },
   "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/pg": "^8.15.4",
+    "bcryptjs": "^3.0.2",
+    "jsonwebtoken": "^9.0.2",
+    "next": "15.4.4",
+    "pg": "^8.16.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.4.4"
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
+    "dotenv": "^17.2.1",
     "eslint": "^9",
     "eslint-config-next": "15.4.4",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5"
   }
 }
