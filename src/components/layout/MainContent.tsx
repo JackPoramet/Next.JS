@@ -8,6 +8,8 @@ import { userAPI } from '@/lib/userAPI';
 import { deviceAPI, FACULTY_NAMES, METER_TYPE_NAMES, STATUS_NAMES } from '@/lib/deviceAPI';
 import UserModal from '@/components/ui/UserModal';
 import ConfirmDeleteModal from '@/components/ui/ConfirmDeleteModal';
+import RealtimeDashboard from '@/components/dashboard/RealtimeDashboard';
+import SystemCheckDashboard from '@/components/dashboard/SystemCheckDashboard';
 
 interface MainContentProps {
   activeMenu: string;
@@ -20,6 +22,15 @@ export default function MainContent({ activeMenu }: MainContentProps) {
   
   // Filter states for devices
   const [selectedFaculty, setSelectedFaculty] = useState<string>('all');
+  
+  // API Test states
+  const [selectedEndpoint, setSelectedEndpoint] = useState<string>('');
+  const [requestMethod, setRequestMethod] = useState<string>('GET');
+  const [requestBody, setRequestBody] = useState<string>('');
+  const [requestHeaders, setRequestHeaders] = useState<string>('{"Content-Type": "application/json"}');
+  const [response, setResponse] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [responseTime, setResponseTime] = useState<number>(0);
   
   // Modal states
   const [userModal, setUserModal] = useState({
@@ -312,11 +323,11 @@ export default function MainContent({ activeMenu }: MainContentProps) {
                   id="faculty-filter"
                   value={selectedFaculty}
                   onChange={(e) => setSelectedFaculty(e.target.value)}
-                  className="block w-full sm:w-64 pl-3 pr-10 py-2 text-sm sm:text-base bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-blue-400 focus:border-blue-400 rounded-md"
+                  className="block w-full sm:w-64 pl-3 pr-10 py-2 text-sm sm:text-base bg-white border border-gray-300 text-gray-900 focus:outline-none focus:ring-blue-400 focus:border-blue-400 rounded-md"
                 >
-                  <option value="all" className="bg-white text-blue-600">🌍 All Faculties ({devices.length} devices)</option>
+                  <option value="all" className="bg-white text-gray-900">🌍 All Faculties ({devices.length} devices)</option>
                   {allFaculties.map((faculty) => (
-                    <option key={faculty} value={faculty} className="bg-white text-gray-700">
+                    <option key={faculty} value={faculty} className="bg-white text-gray-900">
                       {FACULTY_NAMES[faculty as keyof typeof FACULTY_NAMES] || faculty} 
                       ({devices.filter(d => d.faculty === faculty).length} devices)
                     </option>
@@ -967,11 +978,356 @@ export default function MainContent({ activeMenu }: MainContentProps) {
     </div>
   );
 
+  const renderApiTest = () => {
+    const apiEndpoints = [
+      // Auth Endpoints
+      { category: 'Authentication', endpoint: '/api/auth/login', method: 'POST', description: 'User Login' },
+      { category: 'Authentication', endpoint: '/api/auth/logout', method: 'POST', description: 'User Logout' },
+      { category: 'Authentication', endpoint: '/api/auth/verify', method: 'GET', description: 'Verify Token' },
+      
+      // Users Endpoints
+      { category: 'Users', endpoint: '/api/users', method: 'GET', description: 'Get All Users' },
+      { category: 'Users', endpoint: '/api/users', method: 'POST', description: 'Create User' },
+      { category: 'Users', endpoint: '/api/users/[id]', method: 'GET', description: 'Get User by ID' },
+      { category: 'Users', endpoint: '/api/users/[id]', method: 'PUT', description: 'Update User' },
+      { category: 'Users', endpoint: '/api/users/[id]', method: 'DELETE', description: 'Delete User' },
+      
+      // Devices Endpoints
+      { category: 'Devices', endpoint: '/api/devices', method: 'GET', description: 'Get All Devices' },
+      { category: 'Devices', endpoint: '/api/devices', method: 'POST', description: 'Create Device' },
+      { category: 'Devices', endpoint: '/api/devices/[id]', method: 'GET', description: 'Get Device by ID' },
+      { category: 'Devices', endpoint: '/api/devices/[id]', method: 'PUT', description: 'Update Device' },
+      { category: 'Devices', endpoint: '/api/devices/[id]', method: 'DELETE', description: 'Delete Device' },
+      
+      // Profile Endpoints
+      { category: 'Profile', endpoint: '/api/profile', method: 'GET', description: 'Get Profile' },
+      { category: 'Profile', endpoint: '/api/profile', method: 'PUT', description: 'Update Profile' },
+      
+      // Admin Endpoints
+      { category: 'Admin', endpoint: '/api/admin/users', method: 'GET', description: 'Admin Get Users' },
+      { category: 'Admin', endpoint: '/api/admin/stats', method: 'GET', description: 'Get System Stats' },
+    ];
+
+    const groupedEndpoints = apiEndpoints.reduce((acc, endpoint) => {
+      if (!acc[endpoint.category]) {
+        acc[endpoint.category] = [];
+      }
+      acc[endpoint.category].push(endpoint);
+      return acc;
+    }, {} as Record<string, typeof apiEndpoints>);
+
+    const handleTestApi = async () => {
+      if (!selectedEndpoint) {
+        alert('กรุณาเลือก API Endpoint');
+        return;
+      }
+
+      setIsLoading(true);
+      const startTime = Date.now();
+      
+      try {
+        let url = selectedEndpoint;
+        // Replace [id] with actual ID for testing
+        if (url.includes('[id]')) {
+          url = url.replace('[id]', '1'); // Use ID 1 for testing
+        }
+
+        let requestOptions: RequestInit = {
+          method: requestMethod,
+          headers: {
+            ...JSON.parse(requestHeaders),
+          },
+          credentials: 'include', // Include cookies for authentication
+        };
+
+        if (requestMethod !== 'GET' && requestBody) {
+          requestOptions.body = requestBody;
+        }
+
+        const response = await fetch(url, requestOptions);
+        const endTime = Date.now();
+        setResponseTime(endTime - startTime);
+
+        const contentType = response.headers.get('content-type');
+        let responseData;
+        
+        if (contentType && contentType.includes('application/json')) {
+          responseData = await response.json();
+        } else {
+          responseData = await response.text();
+        }
+
+        setResponse({
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          data: responseData,
+          ok: response.ok
+        });
+
+      } catch (error: any) {
+        const endTime = Date.now();
+        setResponseTime(endTime - startTime);
+        setResponse({
+          error: true,
+          message: error.message,
+          status: 'Network Error'
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const getMethodColor = (method: string) => {
+      switch (method) {
+        case 'GET': return 'bg-green-100 text-green-800';
+        case 'POST': return 'bg-blue-100 text-blue-800';
+        case 'PUT': return 'bg-yellow-100 text-yellow-800';
+        case 'DELETE': return 'bg-red-100 text-red-800';
+        default: return 'bg-gray-100 text-gray-800';
+      }
+    };
+
+    const getExampleBody = (endpoint: string, method: string) => {
+      if (method === 'GET') return '';
+      
+      if (endpoint.includes('/auth/login')) {
+        return JSON.stringify({
+          email: "admin@example.com",
+          password: "password123"
+        }, null, 2);
+      }
+      
+      if (endpoint.includes('/users') && method === 'POST') {
+        return JSON.stringify({
+          name: "Test User",
+          email: "test@example.com",
+          password: "password123",
+          role: "user"
+        }, null, 2);
+      }
+      
+      if (endpoint.includes('/devices') && method === 'POST') {
+        return JSON.stringify({
+          name: "Test Device",
+          faculty: "engineering",
+          position: "Building A - Floor 1",
+          meter_type: "digital"
+        }, null, 2);
+      }
+
+      return '{}';
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">🔧 API Testing Tool</h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Request Panel */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Request Configuration</h3>
+              
+              {/* Endpoint Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select API Endpoint
+                </label>
+                <select
+                  value={selectedEndpoint}
+                  onChange={(e) => {
+                    setSelectedEndpoint(e.target.value);
+                    const endpoint = apiEndpoints.find(ep => ep.endpoint === e.target.value);
+                    if (endpoint) {
+                      setRequestMethod(endpoint.method);
+                      setRequestBody(getExampleBody(endpoint.endpoint, endpoint.method));
+                    }
+                  }}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                >
+                  <option value="" className="text-gray-900">Select an endpoint...</option>
+                  {Object.entries(groupedEndpoints).map(([category, endpoints]) => (
+                    <optgroup key={category} label={category} className="text-gray-900">
+                      {endpoints.map((endpoint) => (
+                        <option key={`${endpoint.method}-${endpoint.endpoint}`} value={endpoint.endpoint} className="text-gray-900">
+                          {endpoint.method} - {endpoint.endpoint} ({endpoint.description})
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              {/* Method Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  HTTP Method
+                </label>
+                <select
+                  value={requestMethod}
+                  onChange={(e) => setRequestMethod(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                >
+                  <option value="GET" className="text-gray-900">GET</option>
+                  <option value="POST" className="text-gray-900">POST</option>
+                  <option value="PUT" className="text-gray-900">PUT</option>
+                  <option value="DELETE" className="text-gray-900">DELETE</option>
+                </select>
+              </div>
+
+              {/* Headers */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Headers (JSON)
+                </label>
+                <textarea
+                  value={requestHeaders}
+                  onChange={(e) => setRequestHeaders(e.target.value)}
+                  rows={3}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 font-mono text-sm text-gray-900"
+                  placeholder='{"Content-Type": "application/json"}'
+                />
+              </div>
+
+              {/* Request Body */}
+              {requestMethod !== 'GET' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Request Body (JSON)
+                  </label>
+                  <textarea
+                    value={requestBody}
+                    onChange={(e) => setRequestBody(e.target.value)}
+                    rows={8}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 font-mono text-sm text-gray-900"
+                    placeholder="Enter JSON request body..."
+                  />
+                </div>
+              )}
+
+              {/* Test Button */}
+              <button
+                onClick={handleTestApi}
+                disabled={isLoading || !selectedEndpoint}
+                className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Testing...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    <span>Send Request</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Response Panel */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Response</h3>
+              
+              {response && (
+                <div className="space-y-4">
+                  {/* Response Status */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-gray-700">Status:</span>
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        response.error ? 'bg-red-100 text-red-800' :
+                        response.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {response.status} {response.statusText}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {responseTime}ms
+                    </div>
+                  </div>
+
+                  {/* Response Headers */}
+                  {response.headers && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Response Headers</h4>
+                      <pre className="bg-gray-50 p-3 rounded-md text-xs overflow-auto max-h-32 text-gray-900">
+                        {JSON.stringify(response.headers, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Response Body */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Response Body</h4>
+                    <pre className="bg-gray-50 p-3 rounded-md text-xs overflow-auto max-h-96 whitespace-pre-wrap text-gray-900">
+                      {response.error 
+                        ? response.message 
+                        : typeof response.data === 'string' 
+                          ? response.data 
+                          : JSON.stringify(response.data, null, 2)
+                      }
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {!response && (
+                <div className="flex items-center justify-center h-40 bg-gray-50 rounded-md">
+                  <div className="text-center text-gray-500">
+                    <svg className="h-12 w-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <p>Response will appear here</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* API Endpoints Reference */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">📚 Available API Endpoints</h3>
+          <div className="space-y-4">
+            {Object.entries(groupedEndpoints).map(([category, endpoints]) => (
+              <div key={category}>
+                <h4 className="text-md font-medium text-gray-800 mb-2">{category}</h4>
+                <div className="space-y-2">
+                  {endpoints.map((endpoint, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                      <div className="flex items-center space-x-3">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded ${getMethodColor(endpoint.method)}`}>
+                          {endpoint.method}
+                        </span>
+                        <code className="text-sm text-gray-800">{endpoint.endpoint}</code>
+                      </div>
+                      <span className="text-sm text-gray-600">{endpoint.description}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   switch (activeMenu) {
     case 'dashboard':
       return (
         <>
           {renderDashboard()}
+        </>
+      );
+    case 'realtime':
+      return (
+        <>
+          <RealtimeDashboard />
         </>
       );
     case 'energy':
@@ -1009,6 +1365,24 @@ export default function MainContent({ activeMenu }: MainContentProps) {
             userEmail={deleteModal.user?.email || ''}
             isLoading={deleteModal.isLoading}
           />
+        </>
+      );
+    case 'system-check':
+      return (
+        <>
+          <SystemCheckDashboard />
+        </>
+      );
+    case 'websocket-debug':
+      return (
+        <>
+          <div className="p-6">
+            <iframe 
+              src="/websocket-debug" 
+              className="w-full h-screen border-0 rounded-lg"
+              title="WebSocket Debug Monitor"
+            />
+          </div>
         </>
       );
     case 'analytics':
