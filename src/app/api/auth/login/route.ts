@@ -75,9 +75,10 @@ export async function POST(request: NextRequest) {
 
     console.log('[DEBUG] API Login - Setting cookie');
     // ตั้งค่า cookie สำหรับ token
+    const isProduction = process.env.NODE_ENV === 'production';
     response.cookies.set('auth-token', token, {
       httpOnly: false, // เปลี่ยนเป็น false เพื่อให้ client อ่านได้
-      secure: false, // เปลี่ยนเป็น false สำหรับ development
+      secure: isProduction, // ใช้ secure ใน production
       sameSite: 'lax', // เปลี่ยนจาก strict เป็น lax
       maxAge: 7 * 24 * 60 * 60, // 7 วัน
       path: '/'
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     console.log('[DEBUG] API Login - Cookie set with options:', {
       httpOnly: false,
-      secure: false,
+      secure: isProduction,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60,
       path: '/'
