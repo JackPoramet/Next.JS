@@ -5,7 +5,7 @@ import { getLoginStats, getRecentlyLoggedInUsers } from '@/lib/user-auth';
  * API สำหรับดูสถิติการ login
  * GET /api/admin/login-stats
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     console.log('[DEBUG] Login stats API called');
 

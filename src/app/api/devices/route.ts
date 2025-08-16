@@ -30,7 +30,7 @@ export interface Device {
 }
 
 // GET /api/devices - Get all devices
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     console.log('[DEBUG] Devices API - Getting all devices from database');
 

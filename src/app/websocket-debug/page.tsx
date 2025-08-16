@@ -98,7 +98,7 @@ export default function WebSocketDebugPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto bg-white text-gray-900">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           WebSocket Debug Monitor
@@ -128,16 +128,16 @@ export default function WebSocketDebugPage() {
       </div>
 
       {/* Messages Display */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+  <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
           📡 Raw WebSocket Messages
         </h2>
         
-        <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+  <div className="bg-gray-100 rounded-lg p-4 max-h-96 overflow-y-auto">
           {messages.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
               <p>No messages received yet...</p>
-              <p className="text-sm mt-2">Try clicking "Test Broadcast" to send test data</p>
+              <p className="text-sm mt-2">Try clicking &quot;Test Broadcast&quot; to send test data</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -153,7 +153,7 @@ export default function WebSocketDebugPage() {
                       </span>
                     )}
                   </div>
-                  <pre className="text-xs text-gray-700 bg-white p-2 rounded overflow-x-auto whitespace-pre-wrap">
+                  <pre className="text-xs text-gray-700 bg-gray-50 p-2 rounded overflow-x-auto whitespace-pre-wrap">
                     {JSON.stringify(message, null, 2)}
                   </pre>
                 </div>
@@ -164,31 +164,31 @@ export default function WebSocketDebugPage() {
 
         {/* Quick Stats */}
         <div className="mt-4 grid grid-cols-3 gap-4 text-center">
-          <div className="bg-blue-50 p-3 rounded">
-            <div className="text-2xl font-bold text-blue-600">{messages.length}</div>
-            <div className="text-sm text-blue-600">Total Messages</div>
+          <div className="bg-blue-100 p-3 rounded">
+            <div className="text-2xl font-bold text-blue-700">{messages.length}</div>
+            <div className="text-sm text-blue-700">Total Messages</div>
           </div>
-          <div className="bg-green-50 p-3 rounded">
-            <div className="text-2xl font-bold text-green-600">
+          <div className="bg-green-100 p-3 rounded">
+            <div className="text-2xl font-bold text-green-700">
               {messages.filter(m => m.topic?.startsWith('devices/')).length}
             </div>
-            <div className="text-sm text-green-600">Device Messages</div>
+            <div className="text-sm text-green-700">Device Messages</div>
           </div>
-          <div className="bg-purple-50 p-3 rounded">
-            <div className="text-2xl font-bold text-purple-600">
+          <div className="bg-purple-100 p-3 rounded">
+            <div className="text-2xl font-bold text-purple-700">
               {messages.filter(m => m.type === 'connection').length}
             </div>
-            <div className="text-sm text-purple-600">Connection Messages</div>
+            <div className="text-sm text-purple-700">Connection Messages</div>
           </div>
         </div>
       </div>
 
       {/* Instructions */}
-      <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+  <div className="mt-6 bg-yellow-100 border border-yellow-200 rounded-lg p-4">
         <h3 className="font-medium text-yellow-800 mb-2">🔍 Debug Instructions:</h3>
         <ol className="text-sm text-yellow-700 space-y-1">
-          <li>1. Check if WebSocket status shows "connected"</li>
-          <li>2. Click "Test Broadcast" to send test data</li>
+          <li>1. Check if WebSocket status shows &quot;connected&quot;</li>
+          <li>2. Click &quot;Test Broadcast&quot; to send test data</li>
           <li>3. Verify messages appear in the list above</li>
           <li>4. Check browser console for additional logs</li>
           <li>5. If no messages: check if MQTT service is running</li>

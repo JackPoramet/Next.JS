@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/database';
-const bcrypt = require('bcryptjs');
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   console.log('[DEBUG] API Login endpoint called');

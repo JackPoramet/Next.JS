@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/database';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // GET /api/users/[id] - Get single user
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     console.log('[DEBUG] Users API - Getting user:', id);
 
     const client = await pool.connect();
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/users/[id] - Update user
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { name, email, role, status, password } = body;
 
@@ -131,11 +131,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         UPDATE users 
         SET email = $1, first_name = $2, last_name = $3, role = $4, is_active = $5, updated_at = NOW()
       `;
-      let queryParams = [email, firstName, lastName, role, isActive];
+      const queryParams = [email, firstName, lastName, role, isActive];
 
       // If password is provided, hash it and include in update
       if (password && password.trim()) {
-        const bcrypt = require('bcryptjs');
+        const bcrypt = await import('bcryptjs');
         const hashedPassword = await bcrypt.hash(password, 10);
         updateQuery += `, password_hash = $6`;
         queryParams.push(hashedPassword);
@@ -187,7 +187,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/users/[id] - Delete user
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     console.log('[DEBUG] Users API - Deleting user:', id);
 
     const client = await pool.connect();

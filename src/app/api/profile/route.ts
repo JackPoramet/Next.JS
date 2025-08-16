@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server';
 import { withAuth, AuthenticatedRequest, createAuthResponse } from '@/lib/auth-middleware';
 
 // Protected API endpoint ที่ต้องการ JWT Bearer Token

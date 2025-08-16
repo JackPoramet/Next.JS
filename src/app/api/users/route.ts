@@ -28,7 +28,7 @@ interface ApiUser {
   lastLogin: string;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     console.log('[DEBUG] Users API - Getting all users');
 
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Hash password (you should use bcrypt here)
-      const bcrypt = require('bcryptjs');
+      const bcrypt = await import('bcryptjs');
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Insert new user

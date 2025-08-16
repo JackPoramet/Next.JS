@@ -1,11 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // ปิด dev indicators เพื่อลด warnings
+  // ปิด dev indicators เพื่อลด warnings  
   devIndicators: {
-    buildActivity: false,
-    buildActivityPosition: 'bottom-right',
+    position: 'bottom-left',
   },
+
+  // อนุญาต cross-origin requests จาก network IPs
+  allowedDevOrigins: [
+    '192.168.1.*',      // Wi-Fi network range
+    '169.254.*.*',      // Link-local address range
+    'localhost',        // Local development
+  ],
   
   // ตั้งค่า hostname และ port สำหรับ development
   // สามารถเข้าถึงได้จาก network interfaces อื่นๆ
@@ -38,8 +44,16 @@ const nextConfig: NextConfig = {
       ];
     }
     return [];
-  }
-};
+  },
+
+  // Production optimizations
+  experimental: {
+    optimizePackageImports: ['react-syntax-highlighter', 'react-markdown']
+  },
+
+  // ปิด source maps ใน production เพื่อลดขนาด
+  productionBrowserSourceMaps: false,
+}
 
 
 export default nextConfig;

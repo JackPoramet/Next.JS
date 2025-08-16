@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import GitHubMarkdown from '@/components/ui/GitHubMarkdown';
+import TableOfContents from '@/components/ui/TableOfContents';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/store/authStore';
 import { useUsers } from '@/hooks/useUsers';
 import { useDevices } from '@/hooks/useDevices';
@@ -16,6 +18,71 @@ interface MainContentProps {
 }
 
 export default function MainContent({ activeMenu }: MainContentProps) {
+  const [readmeContent, setReadmeContent] = useState<string>('');
+  const [isTocOpen, setIsTocOpen] = useState(false);
+
+  useEffect(() => {
+    if (activeMenu === 'project-details') {
+      fetch('/README.md')
+        .then(res => res.text())
+        .then(setReadmeContent)
+        .catch(() => setReadmeContent('ไม่พบ README.md หรือเกิดข้อผิดพลาดในการโหลด'));
+    }
+  }, [activeMenu]);
+
+  const toggleToc = () => {
+    setIsTocOpen(!isTocOpen);
+  };
+
+  const closeToc = () => {
+    setIsTocOpen(false);
+  };
+  const renderProjectDetails = () => (
+    <div className="min-h-screen bg-gray-50">
+      {/* Table of Contents */}
+      <TableOfContents 
+        content={readmeContent} 
+        isOpen={isTocOpen}
+        onClose={closeToc}
+      />
+      
+      {/* TOC Toggle Button for mobile */}
+      <button
+        onClick={toggleToc}
+        className="fixed top-4 left-4 lg:hidden bg-white shadow-lg rounded-full p-3 z-50 border border-gray-200 hover:bg-gray-50 transition-all duration-200 hover:shadow-xl"
+        aria-label="Toggle Table of Contents"
+      >
+        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      
+      {/* Main Content */}
+      <div className="lg:ml-80 py-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6">
+              <h1 className="text-3xl font-bold text-white">📄 Project Details</h1>
+              <p className="text-blue-100 mt-2">IoT Electric Energy Management System Documentation</p>
+            </div>
+            
+            {/* Content */}
+            <div className="px-8 py-8">
+              {readmeContent ? (
+                <GitHubMarkdown>{readmeContent}</GitHubMarkdown>
+              ) : (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  <span className="ml-3 text-gray-600">Loading documentation...</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   const { user } = useAuth();
   const { users, stats, isLoading: usersLoading, error: usersError, refreshUsers } = useUsers();
   const { devices, stats: deviceStats, isLoading: devicesLoading, error: devicesError, refreshDevices } = useDevices();
@@ -926,7 +993,7 @@ export default function MainContent({ activeMenu }: MainContentProps) {
     <div className="space-y-6">
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">📈 Reports</h2>
-        <div className="space-y-4">
+        <div className="space-y-4 ">
           {['Daily Report', 'Weekly Report', 'Monthly Report', 'Annual Report'].map((report, index) => (
             <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
               <div>
@@ -951,23 +1018,23 @@ export default function MainContent({ activeMenu }: MainContentProps) {
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Account Settings</h3>
             <div className="space-y-2">
-              <p><strong>Email:</strong> {user?.email}</p>
-              <p><strong>Role:</strong> {user?.role}</p>
-              <p><strong>Status:</strong> Active</p>
+              <p className='text-gray-500'><strong>Email:</strong> {user?.email}</p>
+              <p className='text-gray-500'><strong>Role:</strong> {user?.role}</p>
+              <p className='text-gray-500'><strong>Status:</strong> Active</p>
             </div>
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Notification Settings</h3>
             <div className="space-y-2">
-              <label className="flex items-center">
-                <input type="checkbox" className="mr-2" defaultChecked />
+              <label className="flex items-center text-gray-500">
+                <input type="checkbox" className="mr-2 " defaultChecked />
                 Email notifications
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center text-gray-500">
                 <input type="checkbox" className="mr-2" defaultChecked />
                 SMS alerts
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center text-gray-500">
                 <input type="checkbox" className="mr-2" />
                 Push notifications
               </label>
@@ -1032,7 +1099,7 @@ export default function MainContent({ activeMenu }: MainContentProps) {
           url = url.replace('[id]', '1'); // Use ID 1 for testing
         }
 
-        let requestOptions: RequestInit = {
+        const requestOptions: RequestInit = {
           method: requestMethod,
           headers: {
             ...JSON.parse(requestHeaders),
@@ -1318,6 +1385,12 @@ export default function MainContent({ activeMenu }: MainContentProps) {
   };
 
   switch (activeMenu) {
+    case 'project-details':
+      return (
+        <>
+          {renderProjectDetails()}
+        </>
+      );
     case 'dashboard':
       return (
         <>

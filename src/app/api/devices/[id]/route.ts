@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/database';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 interface Device {
@@ -21,7 +20,7 @@ interface Device {
 // GET /api/devices/[id] - Get single device
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     console.log('[DEBUG] Devices API - Getting device:', id);
 
     // For now, return mock data
@@ -58,7 +57,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/devices/[id] - Update device
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { name, faculty, meter_type, status, position } = body;
 
@@ -108,7 +107,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/devices/[id] - Delete device
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
     console.log('[DEBUG] Devices API - Deleting device:', id);
 
     // For now, just return success response

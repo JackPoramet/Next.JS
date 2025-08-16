@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface IoTData {
   topic: string;
@@ -15,7 +15,7 @@ interface DevicesByFaculty {
 }
 
 export default function RealtimeDashboard() {
-  const [wsData, setWsData] = useState<IoTData[]>([]);
+  // const [wsData, setWsData] = useState<IoTData[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [devicesByFaculty, setDevicesByFaculty] = useState<DevicesByFaculty>({});
   const [meterData, setMeterData] = useState<{[key: string]: any}>({});
@@ -23,6 +23,12 @@ export default function RealtimeDashboard() {
   const [totalMessages, setTotalMessages] = useState<number>(0);
   const [selectedFaculties, setSelectedFaculties] = useState<string[]>([]);
   const [showAllFaculties, setShowAllFaculties] = useState<boolean>(true);
+  // const [lastMessage, setLastMessage] = useState<any>(null);
+  // const [reconnectFunction, setReconnectFunction] = useState<(() => void) | null>(null);
+  const [hostInfo, setHostInfo] = useState<string>('');
+  
+  // Create a ref to hold the WebSocket instance
+  const wsRef = useRef<WebSocket | null>(null);
 
   // Faculty configuration with icons and display names
   const facultyConfig: {[key: string]: {name: string, icon: string, color: string}} = {
@@ -75,30 +81,143 @@ export default function RealtimeDashboard() {
     return colorMap[color] || colorMap['gray'];
   };
 
+  // Set host info after component mounts to avoid hydration mismatch
   useEffect(() => {
-    console.log('🌐 Initializing WebSocket connection for Real-time Dashboard...');
-    let wsRef: WebSocket | null = null;
+    if (typeof window !== 'undefined') {
+      setHostInfo(`${window.location.hostname}:${window.location.port || '3000'}`);
+    }
+  }, []);
+
+  useEffect(() => {
+    console.log('🌐 Initializing Real-time Dashboard...');
     let reconnectTimeoutId: NodeJS.Timeout | null = null;
     let isComponentMounted = true;
+    
+    // Start WebSocket server first
+    const startWebSocketServer = async () => {
+      try {
+        console.log('🚀 Starting WebSocket server...');
+        const response = await fetch('/api/start-services');
+        const result = await response.json();
+        console.log('📡 Start services response:', result);
+        
+        // Wait a moment for server to fully initialize
+        setTimeout(() => {
+          if (isComponentMounted) {
+            connectWebSocket();
+          }
+        }, 1000);
+      } catch (error) {
+        console.error('❌ Failed to start WebSocket server:', error);
+        // Try to connect anyway - server might already be running
+        setTimeout(() => {
+          if (isComponentMounted) {
+            connectWebSocket();
+          }
+        }, 2000);
+      }
+    };
     
     const connectWebSocket = () => {
       if (!isComponentMounted) return null;
       
       try {
-        console.log('🔗 Attempting to connect to WebSocket at ws://localhost:8080');
+        // Dynamic WebSocket URL based on current location
+        const getWebSocketUrl = () => {
+          // Use environment variable if available
+          if (process.env.NEXT_PUBLIC_WS_URL) {
+            console.log('🔧 Using environment WS URL:', process.env.NEXT_PUBLIC_WS_URL);
+            return process.env.NEXT_PUBLIC_WS_URL;
+          }
+          
+          // Auto-detect based on current window location
+          if (typeof window !== 'undefined') {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const hostname = window.location.hostname;
+            const _originalHostname = hostname;
+            
+            console.log('� Current hostname detected:', hostname);
+            
+            // Special handling for network access
+            // If accessing from network IP, try the network IP first for WebSocket
+            if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+              console.log('🌍 Network access detected, using current network IP for WebSocket');
+              
+              // Keep the corrected hostname for network access
+              const networkWsUrl = `${protocol}//${hostname}:8080`;
+              console.log('🔧 Network WS URL:', networkWsUrl);
+              
+              return networkWsUrl;
+            }
+            
+            const port = '8080'; // WebSocket port
+            const wsUrl = `${protocol}//${hostname}:${port}`;
+            console.log('🔧 Auto-detected WS URL:', wsUrl);
+            console.log('🔧 Current location details:', {
+              protocol: window.location.protocol,
+              originalHostname: window.location.hostname,
+              wsHostname: hostname,
+              host: window.location.host,
+              origin: window.location.origin
+            });
+            return wsUrl;
+          }
+          
+          // Fallback
+          console.log('🔧 Using fallback WS URL: ws://localhost:8080');
+          return 'ws://localhost:8080';
+        };
+        
+        const wsUrl = getWebSocketUrl();
+        console.log('🔗 Attempting to connect to WebSocket at', wsUrl);
         
         // Clean up existing connection
-        if (wsRef && wsRef.readyState !== WebSocket.CLOSED) {
-          wsRef.close();
+        if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+          wsRef.current.close();
         }
         
-        const ws = new WebSocket('ws://localhost:8080');
-        wsRef = ws;
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
         
         ws.onopen = () => {
           if (!isComponentMounted) return;
-          console.log('✅ WebSocket connected successfully');
+          console.log('✅ WebSocket connected successfully to:', wsUrl);
+          console.log('🔗 Connection details:', {
+            url: ws.url,
+            readyState: ws.readyState,
+            protocol: ws.protocol
+          });
           setConnectionStatus('connected');
+          
+          // ส่ง ping เพื่อทดสอบ connection
+          const pingData = {
+            type: 'ping',
+            timestamp: new Date().toISOString(),
+            clientInfo: {
+              userAgent: navigator.userAgent,
+              platform: navigator.platform,
+              isMobile: /Mobile|Android|iPhone|iPad/.test(navigator.userAgent)
+            }
+          };
+          
+          ws.send(JSON.stringify(pingData));
+          
+          // Set up periodic ping to keep connection alive (every 25 seconds)
+          const pingInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              const pingTime = new Date().toISOString();
+              ws.send(JSON.stringify({
+                type: 'ping',
+                timestamp: pingTime
+              }));
+              console.log('🏓 Sent keepalive ping');
+            } else {
+              clearInterval(pingInterval);
+            }
+          }, 25000);
+          
+          // Clean up interval on component unmount
+          return () => clearInterval(pingInterval);
         };
         
         ws.onmessage = (event) => {
@@ -108,10 +227,26 @@ export default function RealtimeDashboard() {
             const message = JSON.parse(event.data);
             console.log('📡 Received WebSocket message:', message);
             
+            // Handle different message types
+            if (message.type === 'connection') {
+              console.log('🎯 Connection established:', message);
+              return;
+            }
+            
+            if (message.type === 'heartbeat') {
+              console.log('💓 Heartbeat received');
+              return;
+            }
+            
+            if (message.type === 'pong') {
+              console.log('🏓 Pong received:', message);
+              return;
+            }
+            
             setTotalMessages(prev => prev + 1);
             
             // เก็บข้อมูลทั้งหมดใน wsData สำหรับ log
-            setWsData(prev => [message, ...prev.slice(0, 19)]);
+            // setWsData(prev => [message, ...prev.slice(0, 19)]);
             
             // แยกประเภทข้อมูล - ปรับให้รองรับ topic structure ใหม่
             if (message.topic?.startsWith('devices/')) {
@@ -161,6 +296,7 @@ export default function RealtimeDashboard() {
           if (!isComponentMounted) return;
           
           console.log('🔌 WebSocket connection closed, code:', event.code, 'reason:', event.reason);
+          console.log('🔌 Close codes: 1000=Normal, 1001=Going Away, 1006=Abnormal');
           setConnectionStatus('disconnected');
           
           // Clear any existing reconnect timeout
@@ -168,22 +304,84 @@ export default function RealtimeDashboard() {
             clearTimeout(reconnectTimeoutId);
           }
           
-          // Attempt to reconnect after 5 seconds
-          reconnectTimeoutId = setTimeout(() => {
-            if (isComponentMounted) {
-              console.log('🔄 Attempting WebSocket reconnection...');
-              connectWebSocket();
-            }
-          }, 5000);
+          // Auto-reconnect only for specific close codes
+          if (event.code !== 1000) { // Don't reconnect for normal closure
+            console.log('🔄 Connection lost unexpectedly, will attempt reconnection...');
+            
+            // Exponential backoff: start with 2 seconds, max 30 seconds
+            const backoffDelay = Math.min(2000 * Math.pow(2, 1), 30000);
+            console.log(`🔄 Reconnecting in ${backoffDelay}ms...`);
+            
+            reconnectTimeoutId = setTimeout(() => {
+              if (isComponentMounted) {
+                console.log('🔄 Attempting WebSocket reconnection...');
+                connectWebSocket();
+              }
+            }, backoffDelay);
+          } else {
+            console.log('🔌 Normal connection closure, not reconnecting automatically');
+          }
         };
         
         ws.onerror = (error) => {
           if (!isComponentMounted) return;
           
-          console.error('❌ WebSocket error occurred');
+          console.error('❌ WebSocket Connection Failed!');
           console.error('❌ WebSocket readyState:', ws.readyState);
           console.error('❌ WebSocket URL:', ws.url);
+          console.error('❌ Window location:', window.location.href);
+          console.error('❌ Error details:', error);
+          console.error('❌ User Agent:', navigator.userAgent);
+          console.error('❌ Is Mobile/Tablet:', /Mobile|Android|iPhone|iPad/.test(navigator.userAgent));
+          
+          console.error('🔧 Troubleshooting steps:');
+          console.error('   1. Check if WebSocket server is running on port 8080');
+          console.error('   2. Check Windows Firewall allows port 8080');
+          console.error('   3. Verify network connectivity between devices');
+          console.error('   4. Try accessing from same device first');
+          
           setConnectionStatus('disconnected');
+          
+          // Enhanced fallback logic
+          const currentUrl = ws.url;
+          const currentHostname = window.location.hostname;
+          
+          // Check if failed connection was to Tailscale IP
+          if (currentUrl.includes('100.104.136.124')) {
+            console.log('🔄 Tailscale IP connection failed, trying Wi-Fi IP...');
+            
+            setTimeout(() => {
+              if (isComponentMounted) {
+                console.log('🔄 Attempting Wi-Fi IP fallback...');
+                connectWebSocket();
+              }
+            }, 1000);
+          } else if (currentUrl.includes(currentHostname) && currentHostname !== 'localhost') {
+            console.log('🔄 Network IP connection failed, trying localhost fallback...');
+            console.log('💡 This is common for tablets/mobile devices accessing network IPs');
+            
+            setTimeout(() => {
+              if (isComponentMounted) {
+                console.log('🔄 Attempting localhost fallback (may not work from external device)...');
+                connectWebSocket();
+              }
+            }, 2000);
+          } else if (currentUrl.includes('localhost')) {
+            console.log('🔄 Localhost connection failed');
+            console.log('� This is expected when accessing from external devices');
+            
+            if (currentHostname !== 'localhost' && currentHostname !== '127.0.0.1') {
+              const fallbackUrl = `ws://${currentHostname}:8080`;
+              console.log('🔄 Will try network IP:', fallbackUrl);
+              
+              setTimeout(() => {
+                if (isComponentMounted) {
+                  console.log('🔄 Attempting network IP fallback...');
+                  connectWebSocket();
+                }
+              }, 1000);
+            }
+          }
           
           // Additional error handling based on readyState
           if (ws.readyState === WebSocket.CLOSED) {
@@ -201,8 +399,9 @@ export default function RealtimeDashboard() {
       }
     };
     
-    console.log('🚀 Starting initial WebSocket connection...');
-    connectWebSocket();
+    console.log('🚀 Starting WebSocket services...');
+    startWebSocketServer();
+    // setReconnectFunction(() => connectWebSocket);
     
     return () => {
       console.log('🧹 Cleaning up WebSocket connection...');
@@ -212,8 +411,8 @@ export default function RealtimeDashboard() {
         clearTimeout(reconnectTimeoutId);
       }
       
-      if (wsRef && wsRef.readyState !== WebSocket.CLOSED) {
-        wsRef.close(1000, 'Component unmounting');
+      if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+        wsRef.current.close(1000, 'Component unmounting');
       }
     };
   }, []);  return (
@@ -221,7 +420,7 @@ export default function RealtimeDashboard() {
       <div className="bg-white shadow rounded-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">🌐 IoT Energy Real-time Dashboard</h2>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
             <span className={`px-2 py-1 rounded text-xs font-medium ${
               connectionStatus === 'connected' ? 'bg-green-100 text-green-800' :
               connectionStatus === 'disconnected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
@@ -231,6 +430,11 @@ export default function RealtimeDashboard() {
             <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
               {totalMessages} messages
             </span>
+            {hostInfo && (
+              <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs font-medium">
+                {hostInfo}
+              </span>
+            )}
           </div>
         </div>
 

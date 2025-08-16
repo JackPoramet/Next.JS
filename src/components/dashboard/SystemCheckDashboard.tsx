@@ -304,8 +304,27 @@ export default function SystemCheckDashboard() {
     
     const connectWebSocket = () => {
       try {
-        console.log('🔗 Attempting to connect to WebSocket at ws://localhost:8080');
-        const ws = new WebSocket('ws://localhost:8080');
+        // Dynamic WebSocket URL based on current location (same as RealtimeDashboard)
+        const getWebSocketUrl = () => {
+          if (process.env.NEXT_PUBLIC_WS_URL) {
+            return process.env.NEXT_PUBLIC_WS_URL;
+          }
+          
+          // Auto-detect based on current window location
+          if (typeof window !== 'undefined') {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const hostname = window.location.hostname;
+            const port = '8080'; // WebSocket port
+            return `${protocol}//${hostname}:${port}`;
+          }
+          
+          // Fallback
+          return 'ws://localhost:8080';
+        };
+        
+        const wsUrl = getWebSocketUrl();
+        console.log('🔗 Attempting to connect to WebSocket at', wsUrl);
+        const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
         
         ws.onopen = () => {
@@ -714,7 +733,7 @@ export default function SystemCheckDashboard() {
                 </div>
               ) : (
                 <div className="text-gray-600 text-center">
-                  Select an endpoint and click "Test API" to see the response
+                  Select an endpoint and click &quot;Test API&quot; to see the response
                 </div>
               )}
             </div>

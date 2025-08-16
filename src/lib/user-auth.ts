@@ -79,7 +79,7 @@ export async function authenticateAndUpdateLogin(email: string, password: string
   user?: Omit<User, 'password_hash'>;
   message?: string;
 }> {
-  const bcrypt = require('bcryptjs');
+  const bcrypt = await import('bcryptjs');
   
   try {
     // ค้นหาผู้ใช้

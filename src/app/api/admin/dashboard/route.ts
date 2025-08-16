@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server';
 import { withRole, AuthenticatedRequest, createAuthResponse } from '@/lib/auth-middleware';
 
 // Admin-only API endpoint

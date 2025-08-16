@@ -37,7 +37,7 @@ class MQTTService {
   private async initialize() {
     try {
       const clientId = `nextjs-dashboard-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-      console.log(`🔧 Initializing MQTT client with ID: ${clientId}`);
+  // log removed
       
       // Initialize MQTT Client - เชื่อมต่อ IoT Server จริง
       this.mqttClient = mqtt.connect('mqtt://iot666.ddns.net:1883', {
@@ -53,7 +53,7 @@ class MQTTService {
       this.setupMQTTListeners();
 
       this.isInitialized = true;
-      console.log('✅ MQTT service initialization completed');
+  // log removed
     } catch (error) {
       console.error('❌ Failed to initialize MQTT service:', error);
     }
@@ -63,7 +63,7 @@ class MQTTService {
     if (!this.mqttClient) return;
 
     this.mqttClient.on('connect', () => {
-      console.log('✅ Connected to MQTT broker: iot666.ddns.net:1883');
+  // log removed
       
       // Define topics to subscribe
       const topicsToSubscribe = [
@@ -77,19 +77,19 @@ class MQTTService {
         'iot/system/status'               // System-wide status
       ];
       
-      console.log('📡 Subscribing to MQTT topics...');
+  // log removed
       
       // Subscribe to IoT device topics
       this.mqttClient?.subscribe(topicsToSubscribe, { qos: 1 }, (err, granted) => {
         if (err) {
           console.error('❌ MQTT subscription error:', err);
         } else {
-          console.log('✅ Successfully subscribed to MQTT topics:');
+          // log removed
           granted?.forEach(grant => {
-            console.log(`   📡 ${grant.topic} (QoS: ${grant.qos})`);
+            // log removed
             this.subscribedTopics.push(grant.topic);
           });
-          console.log(`📊 Total subscribed topics: ${this.subscribedTopics.length}`);
+          // log removed
         }
       });
     });
