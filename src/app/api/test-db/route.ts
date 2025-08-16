@@ -8,7 +8,7 @@ export async function GET() {
     // สร้าง pool ใหม่เพื่อทดสอบ
     const testPool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: false, // ปิด SSL เนื่องจาก server ไม่รองรับ
       max: 1, // ใช้ connection เดียวสำหรับการทดสอบ
       connectionTimeoutMillis: 5000, // timeout 5 วินาที
     });

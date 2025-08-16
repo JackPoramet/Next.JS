@@ -3,8 +3,10 @@ import { Pool } from 'pg';
 // สร้าง connection pool สำหรับ PostgreSQL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // การตั้งค่าเพิ่มเติมสำหรับ production
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // ปิด SSL เนื่องจาก database server ไม่รองรับ
+  ssl: false,
+  //สำหรับเปิด SSL
+  //ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   max: 20, // จำนวน connection สูงสุด
   idleTimeoutMillis: 30000, // ปิด idle connection หลัง 30 วินาที
   connectionTimeoutMillis: 2000, // timeout สำหรับการเชื่อมต่อ
