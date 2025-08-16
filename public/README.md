@@ -172,7 +172,7 @@ graph TB
     C --> D[Authentication Middleware]
     D --> E[PostgreSQL Database]
     
-    F[IoT Devices] --> G[MQTT Broker<br/>iot666.ddns.net:1883]
+    F[IoT Devices] --> G[MQTT Broker<br/>your-mqtt-broker:1883]
     G --> H[WebSocket Server<br/>Port 8080]
     H --> B
     
@@ -224,11 +224,11 @@ node install-all.js
 สร้างไฟล์ `.env` ในโฟลเดอร์หลัก:
 ```env
 # Database Configuration
-DATABASE_URL="postgresql://electric_energy:energy666@iot666.ddns.net:5432/energy_database"
+DATABASE_URL="postgresql://username:password@hostname:5432/database_name"
 
-# JWT Secrets
-JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
-NEXTAUTH_SECRET="your-nextauth-secret-key"
+# JWT Secrets (ต้องเปลี่ยนให้ปลอดภัยใน production)
+JWT_SECRET="your-super-secret-jwt-key-minimum-32-characters-change-this"
+NEXTAUTH_SECRET="your-nextauth-secret-key-minimum-32-characters"
 NEXTAUTH_URL="http://localhost:3000"
 
 # App Configuration
@@ -236,12 +236,12 @@ NODE_ENV="development"
 NEXT_PUBLIC_API_URL="http://localhost:3000"
 
 # WebSocket & Real-time Configuration
-NEXT_PUBLIC_WS_URL="ws://192.168.1.55:8080"
+NEXT_PUBLIC_WS_URL="ws://localhost:8080"
 WS_PORT="8080"
 WS_HOST="0.0.0.0"
 
 # MQTT Configuration (Optional)
-MQTT_BROKER_URL="mqtt://iot666.ddns.net:1883"
+MQTT_BROKER_URL="mqtt://your-mqtt-broker:1883"
 ```
 
 #### 4. Database Setup
@@ -689,11 +689,11 @@ docker run -p 3000:3000 -p 8080:8080 \
 
 ```env
 # Database
-DATABASE_URL="postgresql://user:pass@host:5432/db_prod"
+DATABASE_URL="postgresql://username:password@hostname:5432/database_prod"
 
-# Security
-JWT_SECRET="your-production-secret-minimum-32-characters"
-NEXTAUTH_SECRET="your-nextauth-production-secret"
+# Security (ต้องใช้ค่าที่ปลอดภัยและยาวกว่านี้)
+JWT_SECRET="your-production-secret-minimum-32-characters-random-string"
+NEXTAUTH_SECRET="your-nextauth-production-secret-minimum-32-characters"
 NEXTAUTH_URL="https://yourdomain.com"
 
 # App
@@ -1046,10 +1046,10 @@ node install-all.js
 สร้างไฟล์ `.env` ในโฟลเดอร์หลัก:
 ```env
 # Database Configuration
-DATABASE_URL="postgresql://username:password@localhost:5432/iot_energy_db"
+DATABASE_URL="postgresql://username:password@hostname:5432/database_name"
 
-# JWT Secrets
-JWT_SECRET="your-super-secret-jwt-key-min-32-chars"
+# JWT Secrets (ต้องเปลี่ยนให้ปลอดภัยใน production)
+JWT_SECRET="your-super-secret-jwt-key-minimum-32-characters-change-this"
 NEXTAUTH_SECRET="your-nextauth-secret-key"
 NEXTAUTH_URL="http://localhost:3000"
 
