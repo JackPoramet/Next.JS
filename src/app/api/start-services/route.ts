@@ -1,14 +1,14 @@
-// เริ่มต้น WebSocket Server และ MQTT Service
-import { initializeWebSocketServer } from '../../../lib/ws-server';
+// เริ่มต้น SSE และ MQTT Service
 import { getMQTTService } from '../../../lib/mqtt-service';
+import { getSSEConnectionStats } from '../../../lib/sse-service';
 
 export async function GET() {
   try {
-    // เริ่มต้น WebSocket Server
-    initializeWebSocketServer();
-    
     // เริ่มต้น MQTT Service
     const mqttService = getMQTTService();
+    
+    // ดึงสถิติ SSE connections
+    const sseStats = getSSEConnectionStats();
     
     return new Response(JSON.stringify({
       success: true,
@@ -18,13 +18,14 @@ export async function GET() {
         broker: 'iot666.ddns.net:1883',
         message: 'Connected to iot666.ddns.net'
       },
-      websocket: {
+      sse: {
         status: 'running',
-        port: 8080,
-        message: 'Running on port 8080'
+        endpoint: '/api/sse',
+        activeConnections: sseStats.totalConnections,
+        message: 'SSE service is running'
       },
       services: {
-        websocket: 'Running on port 8080',
+        sse: 'Running on /api/sse',
         mqtt: 'Connected to iot666.ddns.net'
       }
     }), {

@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import { broadcastToWebSocket } from '../../../lib/ws-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,8 +22,7 @@ export async function POST(request: NextRequest) {
     
     console.log('🧪 Broadcasting test data:', { topic, data: testData });
     
-    // Broadcast to WebSocket clients
-    broadcastToWebSocket(topic, testData);
+  // Broadcast to SSE clients (WebSocket removed)
     
     return new Response(JSON.stringify({
       success: true,

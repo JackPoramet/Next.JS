@@ -1,5 +1,5 @@
 import mqtt from 'mqtt';
-import { broadcastToWebSocket } from './ws-server';
+import { broadcastToSSE } from './sse-service';
 
 export interface IoTDeviceData {
   device_id: string;
@@ -108,9 +108,9 @@ class MQTTService {
           data.timestamp = new Date().toISOString();
         }
 
-        // Broadcast to all WebSocket clients
-        // console.log(`🚀 Broadcasting to WebSocket clients...`);
-        broadcastToWebSocket(topic, data);
+        // Broadcast to all SSE clients
+        // console.log(`🚀 Broadcasting to SSE clients...`);
+        broadcastToSSE(topic, data);
         // console.log(`✅ Broadcast completed for topic: ${topic}`);
         
       } catch (error) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSSE } from '@/hooks/useSSE';
 
 interface ConnectionStatus {
   status: 'checking' | 'connected' | 'disconnected' | 'error';
@@ -12,7 +13,7 @@ interface ConnectionStatus {
 interface SystemCheck {
   database: ConnectionStatus;
   mqtt: ConnectionStatus;
-  websocket: ConnectionStatus;
+  sse: ConnectionStatus;
   api: ConnectionStatus;
 }
 
@@ -27,7 +28,7 @@ export default function SystemCheckDashboard() {
   const [systemStatus, setSystemStatus] = useState<SystemCheck>({
     database: { status: 'checking', message: 'Checking...' },
     mqtt: { status: 'checking', message: 'Checking...' },
-    websocket: { status: 'checking', message: 'Checking...' },
+    sse: { status: 'checking', message: 'Checking...' },
     api: { status: 'checking', message: 'Checking...' }
   });
 
@@ -48,7 +49,6 @@ export default function SystemCheckDashboard() {
   // const [autoScroll, setAutoScroll] = useState<boolean>(true);
   // const [filterMessageType, setFilterMessageType] = useState<string>('all');
   // const messagesEndRef = useRef<HTMLDivElement>(null);
-  const wsRef = useRef<WebSocket | null>(null);
 
   // API Test States
   const [selectedEndpoint, setSelectedEndpoint] = useState<string>('');
@@ -69,7 +69,7 @@ export default function SystemCheckDashboard() {
     { category: 'Profile', endpoint: '/api/profile', method: 'GET', description: 'Get Profile', body: '' },
     { category: 'Profile', endpoint: '/api/profile', method: 'PUT', description: 'Update Profile', body: '{\n  "name": "Updated Name",\n  "email": "updated@example.com"\n}' },
     { category: 'System', endpoint: '/api/start-services', method: 'GET', description: 'Start Services', body: '' },
-    { category: 'System', endpoint: '/api/websocket', method: 'GET', description: 'WebSocket Status', body: '' },
+    { category: 'System', endpoint: '/api/sse-status', method: 'GET', description: 'SSE Status', body: '' },
   ];
 
   const groupedEndpoints = apiEndpoints.reduce((acc, endpoint) => {
@@ -205,36 +205,37 @@ export default function SystemCheckDashboard() {
     }
   };
 
-  // Check WebSocket Connection
-  const checkWebSocket = async () => {
+  // Check SSE Connection
+  const checkSSE = async () => {
     setSystemStatus(prev => ({ 
       ...prev, 
-      websocket: { status: 'checking', message: 'Checking WebSocket connection...' } 
+      sse: { status: 'checking', message: 'Checking SSE connection...' } 
     }));
     
     try {
-      const response = await fetch('/api/websocket');
+      const response = await fetch('/api/sse-status');
       const data = await response.json();
       
-      if (response.ok && data.status === 'running') {
+      if (response.ok && data.success) {
+        const totalConnections = data.data?.totalConnections || 0;
         setSystemStatus(prev => ({ 
           ...prev, 
-          websocket: { 
+          sse: { 
             status: 'connected', 
-            message: `WebSocket server running on port ${data.port}`,
+            message: `SSE server running with ${totalConnections} active connections`,
             lastCheck: new Date().toLocaleTimeString(),
-            details: data
+            details: data.data || {}
           } 
         }));
       } else {
-        throw new Error(data.message || 'WebSocket connection failed');
+        throw new Error(data.message || 'SSE connection failed');
       }
     } catch (error) {
       setSystemStatus(prev => ({ 
         ...prev, 
-        websocket: { 
+        sse: { 
           status: 'error', 
-          message: `WebSocket connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          message: `SSE connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
           lastCheck: new Date().toLocaleTimeString()
         } 
       }));
@@ -286,149 +287,86 @@ export default function SystemCheckDashboard() {
     setSystemStatus({
       database: { status: 'checking', message: 'Checking...' },
       mqtt: { status: 'checking', message: 'Checking...' },
-      websocket: { status: 'checking', message: 'Checking...' },
+      sse: { status: 'checking', message: 'Checking...' },
       api: { status: 'checking', message: 'Checking...' }
     });
 
     await Promise.all([
       checkDatabase(),
       checkMQTT(),
-      checkWebSocket(),
+      checkSSE(),
       checkAPI()
     ]);
   };
 
-  // WebSocket connection for MQTT monitoring
-  useEffect(() => {
-    console.log('🔌 Initializing WebSocket connection for MQTT monitoring...');
-    
-    const connectWebSocket = () => {
+  // SSE connection for MQTT monitoring
+  const { isConnected } = useSSE({
+    onMessage: (message) => {
       try {
-        // Dynamic WebSocket URL based on current location (same as RealtimeDashboard)
-        const getWebSocketUrl = () => {
-          if (process.env.NEXT_PUBLIC_WS_URL) {
-            return process.env.NEXT_PUBLIC_WS_URL;
-          }
-          
-          // Auto-detect based on current window location
-          if (typeof window !== 'undefined') {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const hostname = window.location.hostname;
-            const port = '8080'; // WebSocket port
-            return `${protocol}//${hostname}:${port}`;
-          }
-          
-          // Fallback
-          return 'ws://localhost:8080';
-        };
+        console.log('📨 SSE message received:', message);
         
-        const wsUrl = getWebSocketUrl();
-        console.log('🔗 Attempting to connect to WebSocket at', wsUrl);
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
+        // รองรับทั้ง format เก่าและใหม่
+        let topic: string | undefined, payload: any = undefined, messageType: string = 'unknown';
         
-        ws.onopen = () => {
-          console.log('✅ Successfully connected to WebSocket for MQTT monitoring');
-          setMqttConnectionStatus('connected');
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            console.log('📨 Raw WebSocket message received:', event.data);
-            const message = JSON.parse(event.data);
-            console.log('📨 Parsed WebSocket message:', message);
-            
-            // รองรับทั้ง format เก่าและใหม่
-            let topic: string | undefined, payload: any = undefined, messageType: string = 'unknown';
-            
-            if (message.type === 'mqtt') {
-              // Format เก่า: {type: 'mqtt', topic: '...', payload: '...'}
-              topic = message.topic;
-              payload = message.payload;
-              messageType = 'mqtt';
-            } else if (message.topic) {
-              // Format ใหม่: {topic: '...', data: '...', timestamp: '...'}
-              topic = message.topic;
-              payload = message.data;
-              messageType = 'direct';
-            }
-            
-            if (topic && payload !== undefined) {
-              const timestamp = message.timestamp || new Date().toISOString();
-              
-              console.log('📡 Processing MQTT topic:', topic, 'with payload:', payload, 'type:', messageType);
-              
-              setMqttTopics(prev => {
-                console.log('📊 Current topics before update:', Object.keys(prev));
-                const existingTopic = prev[topic as string];
-                const newTopics = {
-                  ...prev,
-                  [topic as string]: {
-                    topic: topic as string,
-                    data: payload,
-                    timestamp,
-                    count: existingTopic ? existingTopic.count + 1 : 1
-                  }
-                };
-                console.log('📊 Updated topics:', Object.keys(newTopics));
-                console.log('📊 Topic data for', topic, ':', newTopics[topic as string]);
-                return newTopics;
-              });
-              
-              setTotalMqttMessages(prev => {
-                const newCount = prev + 1;
-                console.log('📈 Total MQTT messages:', newCount);
-                return newCount;
-              });
-            } else {
-              console.log('📨 Message does not contain MQTT data:', message);
-            }
-          } catch (error) {
-            console.error('❌ Error parsing WebSocket message:', error);
-            console.error('❌ Raw message that failed to parse:', event.data);
-          }
-        };
-
-        ws.onclose = () => {
-          console.log('🔌 WebSocket connection closed, attempting to reconnect in 5 seconds...');
-          setMqttConnectionStatus('disconnected');
-          setTimeout(() => {
-            console.log('🔄 Attempting WebSocket reconnection...');
-            connectWebSocket();
-          }, 5000);
-        };
-
-        ws.onerror = (error) => {
-          console.error('❌ WebSocket error:', error);
-          console.error('❌ WebSocket readyState:', ws.readyState);
-          console.error('❌ WebSocket URL:', ws.url);
-          setMqttConnectionStatus('disconnected');
+        if (message.type === 'data' && message.data && typeof message.data === 'object' && message.data.type === 'mqtt') {
+          // Format เก่า: {type: 'data', data: {type: 'mqtt', topic: '...', payload: '...'}}
+          topic = message.data.topic;
+          payload = message.data.payload;
+          messageType = 'mqtt';
+        } else if (message.type === 'data' && message.data && message.data.topic) {
+          // Format ใหม่: {type: 'data', data: {topic: '...', data: '...', timestamp: '...'}}
+          topic = message.data.topic;
+          payload = message.data.data;
+          messageType = 'direct';
+        }
+        
+        if (topic && payload !== undefined) {
+          const timestamp = message.timestamp || new Date().toISOString();
           
-          // เพิ่มการจัดการ error แบบละเอียด
-          if (ws.readyState === WebSocket.CLOSED) {
-            console.log('🔄 WebSocket is closed, attempting reconnection...');
-            setTimeout(() => connectWebSocket(), 3000);
-          }
-        };
-
-        return ws;
+          console.log('📡 Processing MQTT topic:', topic, 'with payload:', payload, 'type:', messageType);
+          
+          setMqttTopics(prev => {
+            console.log('📊 Current topics before update:', Object.keys(prev));
+            const existingTopic = prev[topic as string];
+            const newTopics = {
+              ...prev,
+              [topic as string]: {
+                topic: topic as string,
+                data: payload,
+                timestamp,
+                count: existingTopic ? existingTopic.count + 1 : 1
+              }
+            };
+            console.log('📊 Updated topics:', Object.keys(newTopics));
+            console.log('📊 Topic data for', topic, ':', newTopics[topic as string]);
+            return newTopics;
+          });
+          
+          setTotalMqttMessages(prev => {
+            const newCount = prev + 1;
+            console.log('📈 Total MQTT messages:', newCount);
+            return newCount;
+          });
+        } else {
+          console.log('📨 Message does not contain MQTT data:', message);
+        }
       } catch (error) {
-        console.error('❌ Error creating WebSocket connection:', error);
-        setMqttConnectionStatus('disconnected');
-        return null;
+        console.error('❌ Error processing SSE message:', error);
+        console.error('❌ Raw message that failed to parse:', message);
       }
-    };
+    }
+  });
 
-    console.log('🚀 Starting WebSocket connection process...');
-    const ws = connectWebSocket();
-    
-    return () => {
-      console.log('🧹 Cleaning up WebSocket connection...');
-      if (ws) {
-        ws.close();
-      }
-    };
-  }, []); // Empty dependency array to run only once
+  // อัปเดต MQTT connection status จาก SSE
+  useEffect(() => {
+    if (isConnected) {
+      setMqttConnectionStatus('connected');
+      console.log('✅ SSE connected for MQTT monitoring');
+    } else {
+      setMqttConnectionStatus('disconnected');
+      console.log('� SSE disconnected from MQTT monitoring');
+    }
+  }, [isConnected]);
 
   // Test API endpoint
   const handleTestApi = async () => {
@@ -562,21 +500,21 @@ export default function SystemCheckDashboard() {
           </div>
           
           <div className={`p-3 sm:p-4 rounded-lg cursor-pointer transition-colors hover:opacity-80 ${
-            systemStatus.websocket.status === 'connected' ? 'bg-green-50' :
-            systemStatus.websocket.status === 'error' ? 'bg-red-50' : 'bg-yellow-50'
-          }`} onClick={checkWebSocket}>
+            systemStatus.sse.status === 'connected' ? 'bg-green-50' :
+            systemStatus.sse.status === 'error' ? 'bg-red-50' : 'bg-yellow-50'
+          }`} onClick={checkSSE}>
             <h3 className={`text-xs sm:text-sm font-medium ${
-              systemStatus.websocket.status === 'connected' ? 'text-green-800' :
-              systemStatus.websocket.status === 'error' ? 'text-red-800' : 'text-yellow-800'
-            }`}>🔌 WebSocket</h3>
+              systemStatus.sse.status === 'connected' ? 'text-green-800' :
+              systemStatus.sse.status === 'error' ? 'text-red-800' : 'text-yellow-800'
+            }`}>� SSE</h3>
             <p className={`text-lg sm:text-2xl font-bold ${
-              systemStatus.websocket.status === 'connected' ? 'text-green-900' :
-              systemStatus.websocket.status === 'error' ? 'text-red-900' : 'text-yellow-900'
+              systemStatus.sse.status === 'connected' ? 'text-green-900' :
+              systemStatus.sse.status === 'error' ? 'text-red-900' : 'text-yellow-900'
             }`}>
-              {systemStatus.websocket.status}
+              {systemStatus.sse.status}
             </p>
-            {systemStatus.websocket.lastCheck && (
-              <p className="text-xs text-gray-500 mt-1">Last: {systemStatus.websocket.lastCheck}</p>
+            {systemStatus.sse.lastCheck && (
+              <p className="text-xs text-gray-500 mt-1">Last: {systemStatus.sse.lastCheck}</p>
             )}
           </div>
           

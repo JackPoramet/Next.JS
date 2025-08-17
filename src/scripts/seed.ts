@@ -1,5 +1,4 @@
 import { UserModel } from '@/models/User';
-import { query } from '@/lib/database';
 
 /**
  * Script สำหรับสร้างข้อมูลเริ่มต้นในระบบ

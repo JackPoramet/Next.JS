@@ -1446,18 +1446,7 @@ export default function MainContent({ activeMenu }: MainContentProps) {
           <SystemCheckDashboard />
         </>
       );
-    case 'websocket-debug':
-      return (
-        <>
-          <div className="p-6">
-            <iframe 
-              src="/websocket-debug" 
-              className="w-full h-screen border-0 rounded-lg"
-              title="WebSocket Debug Monitor"
-            />
-          </div>
-        </>
-      );
+  // ลบ WebSocket Debug
     case 'analytics':
       return (
         <>

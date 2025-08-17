@@ -6,6 +6,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { ghcolors } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { Components } from 'react-markdown';
 import { useState, useEffect } from 'react';
+import MermaidDiagram from './MermaidDiagram';
 
 interface GitHubMarkdownProps {
   children: string;
@@ -44,6 +45,26 @@ export default function GitHubMarkdown({ children, className = '' }: GitHubMarkd
       const { node, inline, className, children, ...rest } = props as any;
       const match = /language-(\w+)/.exec(className || '');
       const language = match ? match[1] : '';
+      
+      // Handle Mermaid diagrams
+      if (!inline && language === 'mermaid') {
+        return (
+          <div className="my-8">
+            <div className="bg-gray-800 text-gray-200 px-4 py-2 text-sm font-mono flex items-center justify-between rounded-t-lg">
+              <span>Mermaid Diagram</span>
+              <button 
+                className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                onClick={() => navigator.clipboard.writeText(String(children))}
+              >
+                Copy
+              </button>
+            </div>
+            <div className="border border-gray-200 border-t-0 rounded-b-lg">
+              <MermaidDiagram chart={String(children).replace(/\n$/, '')} />
+            </div>
+          </div>
+        );
+      }
       
       return !inline && match ? (
         <div className="relative rounded-lg overflow-hidden my-6 border border-gray-200">

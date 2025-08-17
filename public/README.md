@@ -7,7 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-336791?logo=postgresql)](https://www.postgresql.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
-[![WebSocket](https://img.shields.io/badge/WebSocket-Real--time-orange?logo=websocket)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+[![SSE](https://img.shields.io/badge/SSE-Real--time-orange?logo=firefox)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
 [![MQTT](https://img.shields.io/badge/MQTT-IoT_Protocol-green?logo=mqtt)](https://mqtt.org/)
 
 ---
@@ -25,7 +25,8 @@
 - [📱 API Documentation](#-api-documentation)
 - [🗂️ โครงสร้างโปรเจค](#️-โครงสร้างโปรเจค)
 - [🧪 การทดสอบ](#-การทดสอบ)
-- [🚀 การ Deploy](#-การ-deploy)
+- [� การตรวจสอบประสิทธิภาพ](#-การตรวจสอบประสิทธิภาพ-performance-monitoring)
+- [�🚀 การ Deploy](#-การ-deploy)
 - [📞 การสนับสนุน](#-การสนับสนุน)
 
 ---
@@ -37,10 +38,10 @@
 ### 🎯 วัตถุประสงค์
 - ✅ **จัดการผู้ใช้** - ระบบ CRUD ผู้ใช้แบบครบถ้วน พร้อม Role-based Access Control
 - ✅ **ติดตามอุปกรณ์ IoT** - จัดการและติดตาม Smart Meter และอุปกรณ์วัดพลังงาน
-- ✅ **Dashboard แบบ Real-time** - แสดงข้อมูลการใช้พลังงานแบบเรียลไทม์ด้วย WebSocket
+- ✅ **Dashboard แบบ Real-time** - แสดงข้อมูลการใช้พลังงานแบบเรียลไทม์ด้วย SSE (Server-Sent Events)
 - ✅ **ระบบรักษาความปลอดภัย** - Authentication และ Authorization ระดับ Enterprise
 - ✅ **รองรับ Multi-Faculty** - จัดการข้อมูลแบบแยกตามหน่วยงาน/คณะ
-- ✅ **MQTT Integration** - รองรับการรับส่งข้อมูลจากอุปกรณ์ IoT แบบ Real-time
+- ✅ **SSE Integration** - รองรับการรับส่งข้อมูลจากอุปกรณ์ IoT แบบ Real-time ผ่าน Server-Sent Events
 
 ### 🏛️ กรณีการใช้งาน
 - **มหาวิทยาลัย** - จัดการพลังงานไฟฟ้าของหลายคณะ/อาคาร
@@ -68,22 +69,23 @@
 - **User Statistics** - สถิติการใช้งานของผู้ใช้
 
 ### 📡 ระบบ Real-time Communication
-- **WebSocket Server** - การสื่อสารแบบ Real-time บน port 8080
+- **Server-Sent Events (SSE)** - การสื่อสารแบบ Real-time ผ่าน HTTP streaming
 - **MQTT Integration** - รองรับโปรโตคอล MQTT สำหรับอุปกรณ์ IoT
 - **Multi-device Support** - รองรับการเชื่อมต่อหลายอุปกรณ์พร้อมกัน
 - **Auto-reconnection** - ระบบเชื่อมต่อใหม่อัตโนมัติเมื่อขาดการเชื่อมต่อ
-- **Connection Fallback** - ระบบ Fallback URL เมื่อเชื่อมต่อผิดพลาด
-- **Ping/Pong Monitoring** - ตรวจสอบสถานะการเชื่อมต่อแบบ Real-time
+- **Connection Fallback** - ระบบ Fallback เมื่อเชื่อมต่อผิดพลาด
+- **Heartbeat Monitoring** - ตรวจสอบสถานะการเชื่อมต่อแบบ Real-time
 - **Cross-origin Support** - รองรับการเข้าถึงจากอุปกรณ์ต่างเครือข่าย
+- **Rate Limiting** - จำกัดการเชื่อมต่อต่อ IP เพื่อป้องกัน DoS
 
 ### 📊 Dashboard และการแสดงผล
-- **Real-time IoT Dashboard** - แสดงข้อมูลอุปกรณ์แบบเรียลไทม์
+- **Real-time IoT Dashboard** - แสดงข้อมูลอุปกรณ์แบบเรียลไทม์ผ่าน SSE
 - **Faculty-based Filtering** - กรองข้อมูลตามคณะ/หน่วยงาน
 - **Multi-section Dashboard** - แบ่งส่วนแสดงผลตาม Role
 - **Responsive Design** - รองรับทุกขนาดหน้าจอ (Mobile-First)
 - **Interactive Navigation** - เมนูแบบ Slide Navigation
 - **Statistics Cards** - แสดงสถิติแบบ Visual
-- **Device Status Monitoring** - ติดตามสถานะอุปกรณ์แบบเรียลไทม์
+- **Device Status Monitoring** - ติดตามสถานะอุปกรณ์แบบเรียลไทม์ผ่าน SSE
 
 ### 🏭 การจัดการอุปกรณ์ IoT
 - **Device Registration** - ลงทะเบียนอุปกรณ์ Smart Meter
@@ -167,21 +169,228 @@
 
 ```mermaid
 graph TB
-    A[Client Browser] --> B[Next.js Frontend]
-    B --> C[API Routes]
-    C --> D[Authentication Middleware]
-    D --> E[PostgreSQL Database]
+    %% IoT Device Layer
+    IoT[🏭 IoT Devices<br/>Smart Meters] --> MQTT[📡 MQTT Broker<br/>iot666.ddns.net:1883]
     
-    F[IoT Devices] --> G[MQTT Broker<br/>your-mqtt-broker:1883]
-    G --> H[WebSocket Server<br/>Port 8080]
-    H --> B
+    %% Data Processing Layer  
+    MQTT --> SSE_SERVICE[⚡ SSE Service<br/>Server-Sent Events<br/>Real-time Stream]
+    SSE_SERVICE --> FRONTEND[🌐 Next.js Frontend<br/>React 19 + TypeScript<br/>Port 3000]
     
-    I[Admin Panel] --> C
-    J[User Dashboard] --> C
-    K[Real-time Dashboard] --> H
+    %% Client Layer
+    FRONTEND --> BROWSER[💻 Desktop Browser<br/>Chrome, Firefox, Safari]
+    FRONTEND --> TABLET[📱 Tablet Devices<br/>iPad, Android Tablets]
+    FRONTEND --> MOBILE[📱 Mobile Devices<br/>iOS, Android]
     
-    L[Mobile/Tablet] --> H
-    M[Multiple Devices] --> H
+    %% API Layer
+    BROWSER --> API[🔗 API Routes<br/>RESTful APIs<br/>/api/*]
+    TABLET --> API
+    MOBILE --> API
+    
+    %% Authentication & Security Layer
+    API --> AUTH[🔐 Authentication Middleware<br/>JWT + Role-based Access<br/>bcrypt Password Hashing]
+    
+    %% Database Layer
+    AUTH --> DB[(🗄️ PostgreSQL Database<br/>Users, Devices, Energy Data<br/>Connection Pooling)]
+    
+    %% Application Modules
+    API --> USERS[👥 User Dashboard<br/>Role-based Interface<br/>Admin/Manager/User]
+    API --> ADMIN[⚙️ Admin Panel<br/>System Management<br/>User & Device Control] 
+    API --> DEVICES[🏭 Device Monitor<br/>Real-time Status<br/>Energy Analytics]
+    API --> ENERGY[⚡ Energy Analytics<br/>Live Data Visualization<br/>Faculty-based Reports]
+    
+    %% Real-time Data Flow
+    SSE_SERVICE -.->|📊 Live Updates| USERS
+    SSE_SERVICE -.->|🔄 Status Stream| DEVICES
+    SSE_SERVICE -.->|⚡ Energy Data| ENERGY
+    SSE_SERVICE -.->|📈 Real-time Stats| ADMIN
+    
+    %% System Health Monitoring
+    API --> HEALTH[🏥 System Health<br/>Connection Monitoring<br/>Performance Metrics]
+    
+    %% Rate Limiting & Security
+    SSE_SERVICE --> RATE[🛡️ Rate Limiting<br/>Connection Limits<br/>Per IP Protection]
+    
+    %% Styling for better visualization
+    classDef iotDevice fill:#e1f5fe,stroke:#01579b,stroke-width:3px,color:#000
+    classDef network fill:#f3e5f5,stroke:#4a148c,stroke-width:3px,color:#000
+    classDef frontend fill:#e8f5e8,stroke:#1b5e20,stroke-width:3px,color:#000
+    classDef api fill:#fff3e0,stroke:#e65100,stroke-width:3px,color:#000
+    classDef database fill:#ffebee,stroke:#b71c1c,stroke-width:3px,color:#000
+    classDef realtime fill:#f1f8e9,stroke:#33691e,stroke-width:3px,color:#000
+    classDef security fill:#fce4ec,stroke:#880e4f,stroke-width:3px,color:#000
+    
+    class IoT iotDevice
+    class MQTT,SSE_SERVICE network
+    class FRONTEND,BROWSER,TABLET,MOBILE frontend
+    class API,USERS,ADMIN,DEVICES,ENERGY,HEALTH api
+    class DB database
+    class RATE,AUTH security
+```
+
+### 🔄 Data Flow Architecture
+
+```mermaid
+sequenceDiagram
+    participant IoT as 🏭 IoT Device
+    participant MQTT as 📡 MQTT Broker
+    participant SSE as ⚡ SSE Service
+    participant API as 🔗 API Routes
+    participant DB as 🗄️ PostgreSQL
+    participant Client as 💻 Client Browser
+    
+    Note over IoT,Client: Real-time Energy Data Flow
+    
+    %% IoT Data Publishing
+    IoT->>MQTT: 📊 Publish Energy Data<br/>(Voltage, Current, Power)
+    Note right of MQTT: Topics:<br/>devices/engineering/*<br/>devices/institution/*<br/>devices/liberal_arts/*
+    
+    %% Real-time Processing
+    MQTT->>SSE: 📥 Subscribe to Topics<br/>Process & Format Data
+    SSE->>SSE: 🔄 Rate Limiting<br/>Connection Management
+    SSE->>Client: 📡 Server-Sent Events<br/>JSON Data Stream
+    Client->>Client: 🎨 Update UI Real-time<br/>Charts & Statistics
+    
+    Note over API,DB: Standard API Flow
+    
+    %% Authentication Flow
+    Client->>API: 🔐 Login Request<br/>Email + Password
+    API->>DB: 🔍 Verify Credentials<br/>bcrypt Hash Check
+    DB->>API: ✅ User Data + Role
+    API->>Client: 🎫 JWT Token<br/>HttpOnly Cookie
+    
+    %% Data Retrieval
+    Client->>API: 📊 Request Dashboard Data<br/>Bearer Token
+    API->>AUTH: 🛡️ Validate JWT<br/>Check Permissions
+    AUTH->>DB: 📋 Query User Data<br/>Role-based Access
+    DB->>API: 📊 Return Filtered Data
+    API->>Client: 📱 JSON Response<br/>Dashboard Content
+```
+
+### 🌐 Real-time Communication Architecture
+
+```mermaid
+graph LR
+    %% MQTT Topic Sources
+    subgraph "🏛️ MQTT Topics by Faculty"
+        ENG[🔧 Engineering<br/>devices/engineering/*]
+        INST[🏛️ Institution<br/>devices/institution/*]
+        LA[📚 Liberal Arts<br/>devices/liberal_arts/*]
+        BA[💼 Business Admin<br/>devices/business/*]
+        ARCH[🏗️ Architecture<br/>devices/architecture/*]
+        IE[⚙️ Industrial Ed<br/>devices/industrial/*]
+    end
+    
+    %% Central MQTT Broker
+    ENG --> BROKER[📡 MQTT Broker<br/>iot666.ddns.net:1883<br/>Message Queue]
+    INST --> BROKER
+    LA --> BROKER
+    BA --> BROKER
+    ARCH --> BROKER
+    IE --> BROKER
+    
+    %% SSE Processing Layer
+    BROKER --> SSE[⚡ SSE Service<br/>Message Processing<br/>JSON Formatting<br/>Rate Limiting]
+    
+    %% Multiple SSE Connections
+    SSE --> CONN1[📡 SSE Connection 1<br/>Admin Dashboard]
+    SSE --> CONN2[📡 SSE Connection 2<br/>Manager Dashboard]
+    SSE --> CONN3[📡 SSE Connection 3<br/>User Dashboard]
+    SSE --> CONN4[📡 SSE Connection N<br/>Mobile/Tablet]
+    
+    %% Client Applications
+    CONN1 --> DASH1[👨‍💼 Admin Panel<br/>System Overview<br/>All Faculties]
+    CONN2 --> DASH2[👩‍💼 Manager Dashboard<br/>Department Focus<br/>Device Control]
+    CONN3 --> DASH3[👤 User Dashboard<br/>Basic Monitoring<br/>Read-only View]
+    CONN4 --> DASH4[📱 Mobile Interface<br/>Responsive Design<br/>Touch Optimized]
+    
+    %% Connection Management
+    SSE --> RATE[🛡️ Rate Limiting<br/>Max Connections per IP<br/>Reconnection Logic]
+    SSE --> HEALTH[🏥 Health Check<br/>Connection Status<br/>Heartbeat Monitor]
+    
+    %% Styling
+    classDef mqtt fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
+    classDef sse fill:#f1f8e9,stroke:#558b2f,stroke-width:2px,color:#000
+    classDef client fill:#fce4ec,stroke:#ad1457,stroke-width:2px,color:#000
+    classDef management fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    
+    class ENG,INST,LA,BA,ARCH,IE,BROKER mqtt
+    class SSE,CONN1,CONN2,CONN3,CONN4 sse
+    class DASH1,DASH2,DASH3,DASH4 client
+    class RATE,HEALTH management
+```
+
+### 🏢 System Component Architecture
+
+```mermaid
+graph TD
+    subgraph "🖥️ Frontend Layer"
+        UI[🎨 React Components<br/>Tailwind CSS<br/>Responsive Design]
+        STATE[📊 State Management<br/>Zustand Store<br/>Authentication State]
+        HOOKS[🪝 Custom Hooks<br/>useSSE, useUsers<br/>useDevices, useAuth]
+    end
+    
+    subgraph "🔗 API Layer"
+        AUTH_API[🔐 Authentication APIs<br/>Login, Logout, Register<br/>JWT Token Management]
+        USER_API[👥 User Management<br/>CRUD Operations<br/>Role-based Access]
+        DEVICE_API[🏭 Device Management<br/>IoT Device Control<br/>Status Monitoring]
+        ADMIN_API[⚙️ Admin APIs<br/>System Statistics<br/>Health Monitoring]
+    end
+    
+    subgraph "🛡️ Security Layer"
+        JWT[🎫 JWT Middleware<br/>Token Validation<br/>Role Verification]
+        BCRYPT[🔒 Password Security<br/>bcrypt Hashing<br/>Salt Rounds: 12]
+        CORS[🌐 CORS Protection<br/>Cross-origin Policy<br/>Allowed Origins]
+    end
+    
+    subgraph "🗄️ Data Layer"
+        PG[🐘 PostgreSQL<br/>Connection Pooling<br/>ACID Transactions]
+        USERS_TBL[(👥 Users Table<br/>Authentication Data<br/>Role Management)]
+        DEVICES_TBL[(🏭 Devices Table<br/>IoT Device Registry<br/>Status & Location)]
+        ENERGY_TBL[(⚡ Energy Data<br/>Real-time Readings<br/>Historical Records)]
+    end
+    
+    subgraph "📡 Real-time Layer"
+        SSE_SERVER[⚡ SSE Server<br/>Event Streaming<br/>Connection Pool]
+        MQTT_CLIENT[📡 MQTT Client<br/>Topic Subscription<br/>Message Processing]
+        RATE_LIMITER[🛡️ Rate Limiter<br/>Connection Limits<br/>DDoS Protection]
+    end
+    
+    %% Connections
+    UI --> STATE
+    STATE --> HOOKS
+    HOOKS --> AUTH_API
+    HOOKS --> USER_API
+    HOOKS --> DEVICE_API
+    
+    AUTH_API --> JWT
+    USER_API --> JWT
+    DEVICE_API --> JWT
+    ADMIN_API --> JWT
+    
+    JWT --> BCRYPT
+    JWT --> CORS
+    
+    JWT --> PG
+    PG --> USERS_TBL
+    PG --> DEVICES_TBL
+    PG --> ENERGY_TBL
+    
+    HOOKS --> SSE_SERVER
+    SSE_SERVER --> MQTT_CLIENT
+    SSE_SERVER --> RATE_LIMITER
+    
+    %% Styling
+    classDef frontend fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef api fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef security fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef database fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    classDef realtime fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    
+    class UI,STATE,HOOKS frontend
+    class AUTH_API,USER_API,DEVICE_API,ADMIN_API api
+    class JWT,BCRYPT,CORS security
+    class PG,USERS_TBL,DEVICES_TBL,ENERGY_TBL database
+    class SSE_SERVER,MQTT_CLIENT,RATE_LIMITER realtime
 ```
 
 ### 📁 Architecture Patterns
@@ -615,7 +824,342 @@ curl -H "Origin: http://192.168.1.55:3000" http://localhost:3000/api/test
 
 ---
 
-## 🚀 การ Deploy
+## � การตรวจสอบประสิทธิภาพ (Performance Monitoring)
+
+### 🖥️ การวัดทรัพยากรฝั่ง Client
+
+#### 🌐 Browser DevTools Performance Analysis
+
+```javascript
+// เปิด Browser DevTools (F12) และใช้ Performance Tab
+// 1. กด Record button
+// 2. ทำการใช้งานแอปพลิเคชัน
+// 3. หยุด Recording และวิเคราะห์ผล
+
+// ตัวอย่างการวัด Performance ใน Console
+console.time('Page Load');
+window.addEventListener('load', () => {
+  console.timeEnd('Page Load');
+  
+  // วัด Memory Usage
+  if (performance.memory) {
+    console.log('Memory Usage:', {
+      used: `${(performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2)} MB`,
+      total: `${(performance.memory.totalJSHeapSize / 1024 / 1024).toFixed(2)} MB`,
+      limit: `${(performance.memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2)} MB`
+    });
+  }
+});
+```
+
+#### 📱 Real-time Performance Monitor
+
+```mermaid
+graph LR
+    subgraph "Client Performance Metrics"
+        CPU[🔥 CPU Usage]
+        MEM[💾 Memory Usage] 
+        NET[🌐 Network]
+        RENDER[🎨 Rendering]
+        SSE[📡 SSE Performance]
+    end
+    
+    subgraph "Monitoring Tools"
+        DEVTOOLS[Browser DevTools]
+        LIGHTHOUSE[Lighthouse]
+        CUSTOM[Custom Metrics]
+        PROFILER[React Profiler]
+    end
+    
+    subgraph "Key Metrics"
+        FCP[First Contentful Paint]
+        LCP[Largest Contentful Paint]
+        CLS[Cumulative Layout Shift]
+        FID[First Input Delay]
+        TTFB[Time to First Byte]
+    end
+    
+    CPU --> DEVTOOLS
+    MEM --> DEVTOOLS
+    NET --> DEVTOOLS
+    RENDER --> LIGHTHOUSE
+    SSE --> CUSTOM
+    
+    DEVTOOLS --> FCP
+    LIGHTHOUSE --> LCP
+    CUSTOM --> CLS
+    PROFILER --> FID
+```
+
+#### 🛠️ การติดตั้ง Performance Monitor
+
+1. **เพิ่ม Performance Component**
+```typescript
+// src/components/ui/PerformanceMonitor.tsx
+'use client';
+
+import { useEffect, useState } from 'react';
+
+interface PerformanceMetrics {
+  memoryUsage: {
+    used: string;
+    total: string;
+    limit: string;
+  } | null;
+  loadTime: number;
+  renderTime: number;
+  sseConnections: number;
+}
+
+export default function PerformanceMonitor() {
+  const [metrics, setMetrics] = useState<PerformanceMetrics>({
+    memoryUsage: null,
+    loadTime: 0,
+    renderTime: 0,
+    sseConnections: 0
+  });
+
+  useEffect(() => {
+    // Monitor Memory Usage
+    const updateMetrics = () => {
+      if (performance.memory) {
+        setMetrics(prev => ({
+          ...prev,
+          memoryUsage: {
+            used: `${(performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2)} MB`,
+            total: `${(performance.memory.totalJSHeapSize / 1024 / 1024).toFixed(2)} MB`,
+            limit: `${(performance.memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2)} MB`
+          }
+        }));
+      }
+    };
+
+    // Update every 5 seconds
+    const interval = setInterval(updateMetrics, 5000);
+    updateMetrics(); // Initial call
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-4 rounded-lg text-xs font-mono z-50">
+      <h4 className="font-bold mb-2">🔧 Performance Monitor</h4>
+      {metrics.memoryUsage && (
+        <div className="space-y-1">
+          <div>Memory Used: {metrics.memoryUsage.used}</div>
+          <div>Memory Total: {metrics.memoryUsage.total}</div>
+          <div>Memory Limit: {metrics.memoryUsage.limit}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+2. **เพิ่มใน Layout**
+```typescript
+// src/app/layout.tsx
+import PerformanceMonitor from '@/components/ui/PerformanceMonitor';
+
+export default function RootLayout() {
+  return (
+    <html>
+      <body>
+        {children}
+        {process.env.NODE_ENV === 'development' && <PerformanceMonitor />}
+      </body>
+    </html>
+  );
+}
+```
+
+#### 📈 เครื่องมือวัดประสิทธิภาพ
+
+| เครื่องมือ | วิธีการใช้ | สิ่งที่วัดได้ |
+|-----------|-----------|-------------|
+| **Browser DevTools** | F12 → Performance Tab | CPU, Memory, Network, Rendering |
+| **Lighthouse** | F12 → Lighthouse Tab | Performance Score, Core Web Vitals |
+| **React DevTools Profiler** | Extension → Profiler Tab | Component Render Time |
+| **Web Vitals Extension** | Chrome Extension | Real-time Core Web Vitals |
+| **Task Manager** | Shift+Esc ใน Chrome | Memory & CPU per Tab |
+
+#### 🎯 Performance Benchmarks
+
+```bash
+# ติดตั้ง Web Vitals
+npm install web-vitals
+
+# ติดตั้ง Lighthouse CI
+npm install -g @lhci/cli
+
+# รัน Lighthouse Analysis
+lhci autorun
+
+# ทดสอบ Bundle Size
+npm install -g bundlephobia
+bundlephobia analyze package.json
+```
+
+#### 📊 การวิเคราะห์ Performance
+
+```javascript
+// การวัด Core Web Vitals
+import { getCLS, getFID, getFCP, getLCP, getTTFB } from 'web-vitals';
+
+// ส่งข้อมูลไปยัง Analytics
+function sendToAnalytics(metric) {
+  console.log('Performance Metric:', metric);
+  
+  // ส่งไปยัง Google Analytics หรือ Custom Analytics
+  // gtag('event', metric.name, {
+  //   value: Math.round(metric.value),
+  //   metric_id: metric.id,
+  // });
+}
+
+getCLS(sendToAnalytics);
+getFID(sendToAnalytics);
+getFCP(sendToAnalytics);
+getLCP(sendToAnalytics);
+getTTFB(sendToAnalytics);
+```
+
+#### 🚨 Performance Alerts
+
+| Metric | Good | Needs Improvement | Poor |
+|--------|------|------------------|------|
+| **First Contentful Paint (FCP)** | < 1.8s | 1.8s - 3.0s | > 3.0s |
+| **Largest Contentful Paint (LCP)** | < 2.5s | 2.5s - 4.0s | > 4.0s |
+| **First Input Delay (FID)** | < 100ms | 100ms - 300ms | > 300ms |
+| **Cumulative Layout Shift (CLS)** | < 0.1 | 0.1 - 0.25 | > 0.25 |
+| **Time to First Byte (TTFB)** | < 600ms | 600ms - 1.5s | > 1.5s |
+
+#### 🔧 การ Optimize Performance
+
+```mermaid
+graph TD
+    subgraph "Frontend Optimization"
+        A[Code Splitting] --> A1[Dynamic Imports]
+        A --> A2[Lazy Loading]
+        
+        B[Bundle Optimization] --> B1[Tree Shaking]
+        B --> B2[Minimize Bundle Size]
+        
+        C[Asset Optimization] --> C1[Image Optimization]
+        C --> C2[Font Loading]
+        
+        D[Caching Strategy] --> D1[Service Worker]
+        D --> D2[Browser Cache]
+    end
+    
+    subgraph "Real-time Optimization"
+        E[SSE Optimization] --> E1[Connection Pooling]
+        E --> E2[Message Filtering]
+        
+        F[State Management] --> F1[Minimize Re-renders]
+        F --> F2[Memoization]
+    end
+    
+    subgraph "Monitoring & Alerts"
+        G[Performance Budget] --> G1[Bundle Size Limits]
+        G --> G2[Runtime Metrics]
+        
+        H[Continuous Monitoring] --> H1[Lighthouse CI]
+        H --> H2[Real User Monitoring]
+    end
+```
+
+#### 💡 Performance Tips
+
+**Client-side Optimization:**
+```typescript
+// 1. ใช้ React.memo เพื่อป้องกัน unnecessary re-renders
+const MemoizedComponent = React.memo(function Component() {
+  return <div>Heavy Component</div>;
+});
+
+// 2. ใช้ useMemo สำหรับ expensive calculations
+const expensiveValue = useMemo(() => {
+  return heavyCalculation(data);
+}, [data]);
+
+// 3. ใช้ useCallback สำหรับ event handlers
+const handleClick = useCallback(() => {
+  doSomething();
+}, []);
+
+// 4. Lazy load components
+const LazyComponent = lazy(() => import('./HeavyComponent'));
+
+// 5. Optimize SSE connections
+const useOptimizedSSE = () => {
+  const [data, setData] = useState(null);
+  
+  useEffect(() => {
+    const eventSource = new EventSource('/api/sse');
+    
+    // Add message filtering
+    eventSource.onmessage = (event) => {
+      const newData = JSON.parse(event.data);
+      
+      // Only update if data actually changed
+      setData(prevData => {
+        if (JSON.stringify(prevData) !== JSON.stringify(newData)) {
+          return newData;
+        }
+        return prevData;
+      });
+    };
+    
+    return () => eventSource.close();
+  }, []);
+  
+  return data;
+};
+```
+
+#### 🔍 Performance Debugging
+
+```bash
+# 1. วิเคราะห์ Bundle Size
+npm run build
+npx bundle-analyzer
+
+# 2. ตรวจสอบ Memory Leaks
+# เปิด DevTools → Performance → Memory tab
+# Record memory usage ระหว่างการใช้งาน
+
+# 3. Network Performance
+# DevTools → Network tab
+# ดู Request/Response times
+# ตรวจสอบ SSE connection stability
+
+# 4. CPU Profiling
+# DevTools → Performance tab
+# Record CPU usage ขณะใช้งาน Real-time features
+```
+
+#### 📱 Mobile Performance Testing
+
+```javascript
+// เลียนแบบ Mobile Network
+// DevTools → Network → Throttling → Slow 3G
+
+// ทดสอบบน Device จริง
+// Chrome DevTools → Remote Debugging
+// หรือใช้ BrowserStack/Sauce Labs
+
+// Performance บน Mobile
+if (navigator.userAgent.includes('Mobile')) {
+  // ลด frequency ของ SSE updates
+  // ลดจำนวน components ที่ render
+  // ใช้ Virtual Scrolling สำหรับ large lists
+}
+```
+
+---
+
+## �🚀 การ Deploy
 
 ### 🌐 Vercel Deployment (แนะนำ)
 

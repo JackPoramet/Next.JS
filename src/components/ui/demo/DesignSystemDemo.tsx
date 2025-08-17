@@ -59,12 +59,6 @@ export default function DesignSystemDemo() {
               lastCheck="10:29:45 AM"
             />
             <StatusCard
-              title="WebSocket"
-              icon="🔌"
-              status="checking"
-              message="Checking connection..."
-            />
-            <StatusCard
               title="API"
               icon="🌐"
               status="disconnected"
