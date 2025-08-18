@@ -364,7 +364,7 @@ export default function SystemCheckDashboard() {
       console.log('✅ SSE connected for MQTT monitoring');
     } else {
       setMqttConnectionStatus('disconnected');
-      console.log('� SSE disconnected from MQTT monitoring');
+      console.log('❌ SSE disconnected from MQTT monitoring');
     }
   }, [isConnected]);
 
@@ -468,7 +468,7 @@ export default function SystemCheckDashboard() {
             <h3 className={`text-xs sm:text-sm font-medium ${
               systemStatus.database.status === 'connected' ? 'text-green-800' :
               systemStatus.database.status === 'error' ? 'text-red-800' : 'text-yellow-800'
-            }`}>�️ Database</h3>
+            }`}>🗄️ Database</h3>
             <p className={`text-lg sm:text-2xl font-bold ${
               systemStatus.database.status === 'connected' ? 'text-green-900' :
               systemStatus.database.status === 'error' ? 'text-red-900' : 'text-yellow-900'
@@ -487,7 +487,7 @@ export default function SystemCheckDashboard() {
             <h3 className={`text-xs sm:text-sm font-medium ${
               systemStatus.mqtt.status === 'connected' ? 'text-green-800' :
               systemStatus.mqtt.status === 'error' ? 'text-red-800' : 'text-yellow-800'
-            }`}>� MQTT</h3>
+            }`}>📡 MQTT</h3>
             <p className={`text-lg sm:text-2xl font-bold ${
               systemStatus.mqtt.status === 'connected' ? 'text-green-900' :
               systemStatus.mqtt.status === 'error' ? 'text-red-900' : 'text-yellow-900'
@@ -506,7 +506,7 @@ export default function SystemCheckDashboard() {
             <h3 className={`text-xs sm:text-sm font-medium ${
               systemStatus.sse.status === 'connected' ? 'text-green-800' :
               systemStatus.sse.status === 'error' ? 'text-red-800' : 'text-yellow-800'
-            }`}>� SSE</h3>
+            }`}>🔌 SSE</h3>
             <p className={`text-lg sm:text-2xl font-bold ${
               systemStatus.sse.status === 'connected' ? 'text-green-900' :
               systemStatus.sse.status === 'error' ? 'text-red-900' : 'text-yellow-900'
