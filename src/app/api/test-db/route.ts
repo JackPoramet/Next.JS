@@ -1,45 +1,61 @@
 import { NextResponse } from 'next/server';
+import { testConnection } from '@/lib/database';
 
+/**
+ * @swagger
+ * /api/test-db:
+ *   get:
+ *     summary: Test database connection
+ *     description: Test PostgreSQL database connection and return connection details
+ *     tags:
+ *       - System Health
+ *     responses:
+ *       200:
+ *         description: Database connection test results
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Database connection successful"
+ *                 details:
+ *                   type: object
+ *       500:
+ *         description: Database connection failed
+ */
 export async function GET() {
   try {
-    // ไม่ import pool ตรงนี้เพื่อหลีกเลี่ยง connection error
-    const { Pool } = await import('pg');
+    console.log('API test-db called - testing database connection');
     
-    // สร้าง pool ใหม่เพื่อทดสอบ
-    const testPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: false, // ปิด SSL เนื่องจาก server ไม่รองรับ
-      max: 1, // ใช้ connection เดียวสำหรับการทดสอบ
-      connectionTimeoutMillis: 5000, // timeout 5 วินาที
-    });
-
-    console.log('Testing database connection...');
+    const connectionTest = await testConnection();
     
-    // ทดสอบการเชื่อมต่อ
-    const client = await testPool.connect();
-    const result = await client.query('SELECT NOW() as current_time, version() as version');
-    client.release();
-    
-    // ปิด pool
-    await testPool.end();
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Database connection successful',
-      data: {
-        currentTime: result.rows[0].current_time,
-        version: result.rows[0].version.substring(0, 50) + '...',
-        connectionString: process.env.DATABASE_URL ? 'Configured ✅' : 'Missing ❌'
-      },
-      timestamp: new Date().toISOString()
-    });
+    if (connectionTest.success) {
+      return NextResponse.json({
+        success: true,
+        message: connectionTest.message,
+        data: connectionTest.details,
+        timestamp: new Date().toISOString()
+      }, { status: 200 });
+    } else {
+      return NextResponse.json({
+        success: false,
+        message: connectionTest.message,
+        error: connectionTest.details,
+        timestamp: new Date().toISOString()
+      }, { status: 500 });
+    }
     
   } catch (error) {
-    console.error('Database connection error:', error);
+    console.error('Error in test-db API:', error);
     
     return NextResponse.json({
       success: false,
-      message: 'Database connection failed',
+      message: 'Database test failed',
       error: error instanceof Error ? error.message : 'Unknown error',
       details: {
         connectionString: process.env.DATABASE_URL ? 'Configured' : 'Missing',

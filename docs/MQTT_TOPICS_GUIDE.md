@@ -1,82 +1,91 @@
 # MQTT Topic Structure and Data Format
 
-## Department-based Device Topics
+## Updated Topic Architecture (August 2025)
 
-The system subscribes to the following MQTT topics for department-specific IoT devices:
+The system now uses a **dual-topic structure** for better data organization:
 
 ### Topic Structure
 ```
-devices/{department}/{device_id}
+devices/{faculty}/{device_id}/datas  # Real-time sensor data
+devices/{faculty}/{device_id}/prop   # Device properties/metadata
 ```
 
-### Supported Departments
-1. **institution** - `devices/institution/+`
-2. **engineering** - `devices/engineering/+`
-3. **liberal_arts** - `devices/liberal_arts/+`
-4. **business_administration** - `devices/business_administration/+`
-5. **architecture** - `devices/architecture/+`
-6. **industrial_education** - `devices/industrial_education/+`
+### Supported Faculties
+1. **institution** - `devices/institution/+/{datas|prop}`
+2. **engineering** - `devices/engineering/+/{datas|prop}`
+3. **liberal_arts** - `devices/liberal_arts/+/{datas|prop}`
+4. **business_administration** - `devices/business_administration/+/{datas|prop}`
+5. **architecture** - `devices/architecture/+/{datas|prop}`
+6. **industrial_education** - `devices/industrial_education/+/{datas|prop}`
 
 ## Example Topics
 ```
-devices/institution/meter_001
-devices/engineering/sensor_lab_01
-devices/liberal_arts/classroom_a101
-devices/business_administration/office_b205
-devices/architecture/studio_c301
-devices/industrial_education/workshop_d101
+# Device Data Topics (Real-time sensor readings)
+devices/institution/library_meter_001/datas
+devices/engineering/lab_sensor_01/datas
+devices/liberal_arts/classroom_a101/datas
+devices/business_administration/office_b205/datas
+devices/architecture/studio_c301/datas
+devices/industrial_education/workshop_d101/datas
+
+# Device Property Topics (Metadata and configuration)
+devices/institution/library_meter_001/prop
+devices/engineering/lab_sensor_01/prop
+devices/liberal_arts/classroom_a101/prop
+devices/business_administration/office_b205/prop
+devices/architecture/studio_c301/prop
+devices/industrial_education/workshop_d101/prop
 ```
 
-## Expected Data Format
+## Data Format Specifications
 
-### IoT Device Data
+### 1. Device Properties (/prop topic)
 ```json
 {
-  "device_id": "meter_001",
-  "timestamp": "2025-07-30T10:30:00Z",
-  "voltage": 220.5,
-  "current": 15.2,
-  "power": 3351.6,
-  "energy": 125.8,
+  "device_id": "lab_sensor_01",
+  "name": "Engineering Lab Smart Meter",
+  "faculty": "engineering",
+  "building": "Engineering Building A",
+  "floor": "2",
+  "room": "Lab 201",
+  "device_type": "smart_meter",
+  "manufacturer": "PowerTech",
+  "model": "PM-4000",
+  "installation_date": "2024-03-15",
+  "timestamp": "2025-08-19T10:30:00Z"
+}
+
+### 2. Device Sensor Data (/datas topic)
+```json
+{
+  "device_id": "lab_sensor_01",
+  "timestamp": "2025-08-19T14:30:00Z",
+  "voltage": 235.2,
+  "current": 45.8,
+  "power": 10760.5,
+  "energy": 1248.75,
   "frequency": 50.1,
-  "power_factor": 0.98,
-  "temperature": 35.2,
+  "power_factor": 0.92,
+  "temperature": 28.5,
   "status": "online"
 }
 ```
 
-### Meter Reading Data
-```json
-{
-  "meter_id": "meter_001",
-  "timestamp": "2025-07-30T10:30:00Z",
-  "total_energy": 1250.8,
-  "daily_energy": 45.2,
-  "monthly_energy": 890.5,
-  "peak_demand": 120.5,
-  "meter_status": "active"
-}
-```
+## Simplified Status System
 
-## Status Values
+### Device Status (Online/Offline Detection)
+- **online** - Device sent data within the last 60 seconds
+- **offline** - No data received for more than 60 seconds
 
-### Device Status
-- `online` - Device is operational and sending data
-- `offline` - Device is not responding
-- `maintenance` - Device is under maintenance
-- `error` - Device has encountered an error
+Status is automatically determined by the dashboard based on message timestamps, not device-reported status.
 
-### Meter Status
-- `active` - Meter is recording data normally
-- `inactive` - Meter is not recording data
-- `error` - Meter has a fault or error
+## Architecture Overview
 
-## Real-time Data Flow
-
-1. **MQTT Publisher** → Sends data to topic `devices/{department}/{device_id}`
-2. **MQTT Service** → Receives data and forwards to WebSocket
-3. **WebSocket Server** → Broadcasts to connected clients
-4. **Frontend Dashboard** → Displays real-time data by department
+### Data Flow
+1. **Python MQTT Devices** → Publish to MQTT broker (iot666.ddns.net:1883)
+2. **Next.js MQTT Service** → Subscribes to all faculty topics
+3. **SSE Service** → Broadcasts received data to connected clients
+4. **Dashboard Components** → Display real-time data with timeout-based status
 
 ## MQTT Connection Configuration
 
@@ -90,14 +99,49 @@ MQTT_PASSWORD=energy666
 
 ### Using mosquitto_pub (Command Line)
 ```bash
-# Send test data to engineering department
+# Send device properties to engineering department
 mosquitto_pub -h iot666.ddns.net -p 1883 \
   -u electric_energy -P energy666 \
-  -t "devices/engineering/lab_sensor_01" \
-  -m '{"device_id":"lab_sensor_01","voltage":220.5,"current":15.2,"power":3351.6,"energy":125.8,"status":"online","timestamp":"2025-07-30T10:30:00Z"}'
+  -t "devices/engineering/lab_sensor_01/prop" \
+  -m '{"device_id":"lab_sensor_01","name":"Engineering Lab Smart Meter","faculty":"engineering","building":"Engineering Building A","floor":"2","room":"Lab 201","timestamp":"2025-08-19T10:30:00Z"}'
 
-# Send test data to architecture department
+# Send sensor data to engineering department
 mosquitto_pub -h iot666.ddns.net -p 1883 \
+  -u electric_energy -P energy666 \
+  -t "devices/engineering/lab_sensor_01/datas" \
+  -m '{"device_id":"lab_sensor_01","voltage":235.2,"current":45.8,"power":10760.5,"energy":1248.75,"temperature":28.5,"status":"online","timestamp":"2025-08-19T14:30:00Z"}'
+
+# Send data to architecture department
+mosquitto_pub -h iot666.ddns.net -p 1883 \
+  -u electric_energy -P energy666 \
+  -t "devices/architecture/studio_c301/datas" \
+  -m '{"device_id":"studio_c301","voltage":220.5,"current":15.2,"power":3351.6,"energy":125.8,"temperature":35.2,"status":"online","timestamp":"2025-08-19T14:30:00Z"}'
+```
+
+### Using MQTT Explorer or Similar Tools
+```
+Host: iot666.ddns.net
+Port: 1883
+Username: electric_energy
+Password: energy666
+
+Subscribe to: devices/+/+/datas
+Subscribe to: devices/+/+/prop
+```
+
+## Dashboard Integration
+
+### Real-time Dashboard (/realtime)
+- Displays only `/datas` topics
+- Groups devices by faculty
+- Shows online/offline status based on 60-second timeout
+- Updates automatically via SSE connection
+
+### System Check Dashboard (/dashboard)
+- Monitors both `/datas` and `/prop` topics
+- Provides detailed MQTT message inspection
+- Shows connection status and message counts
+- Debug-friendly interface for development
   -u electric_energy -P energy666 \
   -t "devices/architecture/studio_meter_01" \
   -m '{"device_id":"studio_meter_01","voltage":220.0,"current":12.8,"power":2816.0,"energy":98.5,"status":"online","timestamp":"2025-07-30T10:30:00Z"}'
@@ -138,11 +182,11 @@ The real-time dashboard automatically:
 
 ## Monitoring and Debugging
 
-### Check WebSocket Connection
+### Check SSE Connection
 ```javascript
 // Browser console
-const ws = new WebSocket('ws://localhost:8080');
-ws.onmessage = (event) => {
+const eventSource = new EventSource('/api/sse');
+eventSource.onmessage = (event) => {
   console.log('Received:', JSON.parse(event.data));
 };
 ```

@@ -105,7 +105,7 @@ export default function UserModal({ isOpen, onClose, onSave, user, mode }: UserM
       {/* Modal */}
       <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto border-2 border-gray-300">
         <div className="px-4 sm:px-6 py-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-bold text-gray-900">
             {mode === 'add' ? '🆕 เพิ่มผู้ใช้ใหม่' : '✏️ แก้ไขผู้ใช้'}
           </h3>
         </div>
@@ -113,13 +113,13 @@ export default function UserModal({ isOpen, onClose, onSave, user, mode }: UserM
         <form onSubmit={handleSubmit} className="px-4 sm:px-6 py-4">
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600">{error}</p>
+              <p className="text-sm text-red-800 font-semibold">{error}</p>
             </div>
           )}
           
           <div className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="name" className="block text-sm font-bold text-gray-800 mb-1">
                 ชื่อผู้ใช้ *
               </label>
               <input
@@ -127,7 +127,7 @@ export default function UserModal({ isOpen, onClose, onSave, user, mode }: UserM
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="block w-full border border-gray-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full border border-gray-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
                 placeholder="กรอกชื่อผู้ใช้"
                 required
                 disabled={isLoading}
@@ -135,7 +135,7 @@ export default function UserModal({ isOpen, onClose, onSave, user, mode }: UserM
             </div>
             
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-bold text-gray-800 mb-1">
                 อีเมล *
               </label>
               <input
@@ -143,7 +143,7 @@ export default function UserModal({ isOpen, onClose, onSave, user, mode }: UserM
                 id="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                className="block w-full border border-gray-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full border border-gray-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
                 placeholder="กรอกอีเมล"
                 required
                 disabled={isLoading}
@@ -151,7 +151,7 @@ export default function UserModal({ isOpen, onClose, onSave, user, mode }: UserM
             </div>
             
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="role" className="block text-sm font-bold text-gray-800 mb-1">
                 บทบาท
               </label>
               <select
@@ -161,14 +161,14 @@ export default function UserModal({ isOpen, onClose, onSave, user, mode }: UserM
                 className="block w-full border border-gray-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 disabled={isLoading}
               >
-                <option value="user">User</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
+                <option className='text-gray-400' value="user">User</option>
+                <option className='text-gray-400' value="manager">Manager</option>
+                <option className='text-gray-400' value="admin">Admin</option>
               </select>
             </div>
             
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-sm font-bold text-gray-800 mb-1">
                 รหัสผ่าน {mode === 'add' ? '*' : '(เว้นว่างหากไม่ต้องการเปลี่ยน)'}
               </label>
               <input
@@ -176,14 +176,14 @@ export default function UserModal({ isOpen, onClose, onSave, user, mode }: UserM
                 id="password"
                 value={formData.password}
                 onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                className="block w-full border border-gray-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full border border-gray-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
                 placeholder="กรอกรหัสผ่าน"
                 disabled={isLoading}
               />
             </div>
             
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="confirmPassword" className="block text-sm font-bold text-gray-800 mb-1">
                 ยืนยันรหัสผ่าน {mode === 'add' ? '*' : ''}
               </label>
               <input
@@ -191,7 +191,7 @@ export default function UserModal({ isOpen, onClose, onSave, user, mode }: UserM
                 id="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                className="block w-full border border-gray-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full border border-gray-300 rounded-md px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
                 placeholder="ยืนยันรหัสผ่าน"
                 disabled={isLoading}
               />
@@ -203,14 +203,14 @@ export default function UserModal({ isOpen, onClose, onSave, user, mode }: UserM
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="w-full sm:w-auto px-4 py-3 text-base font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
+              className="w-full sm:w-auto px-4 py-3 text-base font-bold text-gray-800 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
             >
               ยกเลิก
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full sm:w-auto px-4 py-3 text-base font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto px-4 py-3 text-base font-bold text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center">

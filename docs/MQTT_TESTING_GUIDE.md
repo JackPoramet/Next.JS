@@ -55,7 +55,7 @@ python3 scripts/mqtt-test-publisher.py
 - แสดง topics ทั้งหมดที่มีข้อมูลส่งมา
 - นับจำนวน messages ของแต่ละ topic
 - แสดงข้อมูล JSON ล่าสุดของแต่ละ topic
-- สถานะการเชื่อมต่อ WebSocket
+- สถานะการเชื่อมต่อ SSE
 
 #### ใน Console/Terminal:
 ```
@@ -90,15 +90,12 @@ ping iot666.ddns.net
 telnet iot666.ddns.net 1883
 ```
 
-#### ปัญหา: WebSocket ไม่เชื่อมต่อ
+#### ปัญหา: SSE ไม่เชื่อมต่อ
 ```bash
-# ตรวจสอบ WebSocket server
-curl -i -N \
-  -H "Connection: Upgrade" \
-  -H "Upgrade: websocket" \
-  -H "Sec-WebSocket-Key: test" \
-  -H "Sec-WebSocket-Version: 13" \
-  http://localhost:8080/
+# ตรวจสอบ SSE endpoint
+curl -H "Accept: text/event-stream" \
+  -H "Cache-Control: no-cache" \
+  http://localhost:3000/api/sse
 ```
 
 #### ปัญหา: ไม่มีข้อมูลใน Dashboard
@@ -137,15 +134,15 @@ mosquitto_pub -h iot666.ddns.net -p 1883 \
 
 #### Success Indicators:
 ✅ MQTT client เชื่อมต่อสำเร็จ  
-✅ WebSocket server ทำงานบน port 8080  
+✅ SSE server ทำงานและเชื่อมต่อได้  
 ✅ Data แสดงใน Real-time Dashboard  
 ✅ Topics ปรากฏใน System Check Monitor  
 ✅ Message counts เพิ่มขึ้นเมื่อมีข้อมูลใหม่  
 
 #### คำสั่งสำหรับ Debug:
 ```bash
-# ดู WebSocket connections
-netstat -an | grep 8080
+# ดู SSE connections
+curl -H "Accept: text/event-stream" http://localhost:3000/api/sse
 
 # ดู MQTT connections  
 netstat -an | grep 1883

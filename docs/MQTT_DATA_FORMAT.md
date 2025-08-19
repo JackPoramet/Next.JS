@@ -1,53 +1,63 @@
 # 📡 MQTT Data Format สำหรับ IoT Devices
 
-## 🔌 รูปแบบข้อมูลที่ส่งมาจาก MQTT
+## � Topic Structure
+
+### 📋 ใหม่! Topic Organization
+- **Device Data**: `devices/{faculty}/{device_id}/datas` - สำหรับข้อมูลจริงจากอุปกรณ์
+- **Device Properties**: `devices/{faculty}/{device_id}/prop` - สำหรับข้อมูล metadata/การลงทะเบียน
+
+### 🏢 Faculty/Department Codes
+- `engineering` - คณะวิศวกรรมศาสตร์
+- `institution` - หน่วยงานสถาบัน (ห้องสมุด, อาคารกลาง)
+- `liberal_arts` - คณะศิลปศาสตร์
+- `business_administration` - คณะบริหารธุรกิจ
+- `architecture` - คณะสถาปัตยกรรมศาสตร์
+- `industrial_education` - คณะครุศาสตร์อุตสาหกรรม
+
+## �🔌 รูปแบบข้อมูลที่ส่งมาจาก MQTT
 
 ### 📊 1. Device Registration (การลงทะเบียนอุปกรณ์ใหม่)
 
-**Topic:** `iot/devices/register`
+**Topic:** `devices/{faculty}/{device_id}/prop`
 
 ```json
 {
-  "device_id": "SM015",
-  "name": "Smart Meter Library 001",
-  "faculty": "institution",
-  "building": "Library Building",
-  "floor": "1",
-  "room": "101",
-  "position": "Main Electrical Panel - Library Ground Floor",
-  "meter_type": "digital",
-  "device_model": "SM-3500",
+  "device_id": "ENG_SM_LAB_01",
+  "name": "Smart Meter Engineering Lab 1",
+  "faculty": "engineering",
+  "building": "Engineering Building A",
+  "floor": "2",
+  "room": "Lab 201",
+  "device_type": "smart_meter",
+  "sensor_type": "digital",
   "manufacturer": "PowerTech",
-  "ip_address": "192.168.1.115",
-  "mac_address": "00:1B:44:11:3A:B7",
-  "installation_date": "2024-07-27",
-  "data_collection_interval": 30,
-  "description": "ระบบไฟฟ้าหลักห้องสมุดกลาง",
-  "settings": {
-    "alert_threshold": {
-      "voltage_min": 220,
-      "voltage_max": 240,
-      "current_max": 100,
-      "power_factor_min": 0.8
-    },
-    "reporting_interval": 60,
-    "auto_maintenance_alert": true
-  }
+  "model": "PM-4000",
+  "firmware_version": "2.1.0",
+  "installation_date": "2024-03-15",
+  "data_collection_interval": 5,
+  "sensors": [
+    {"type": "voltage", "unit": "V", "range": "0-300", "accuracy": "±0.5%"},
+    {"type": "current", "unit": "A", "range": "0-100", "accuracy": "±1.0%"},
+    {"type": "power", "unit": "W", "range": "0-30000", "accuracy": "±1.5%"}
+  ],
+  "power_supply": "220V AC",
+  "communication": "RS485/MQTT",
+  "status": "online",
+  "timestamp": "2024-08-19T10:30:00.000Z"
 }
 ```
 
 ### ⚡ 2. Real-time Energy Data (ข้อมูลการใช้พลังงานแบบ Real-time)
 
-**Topic:** `iot/devices/{device_id}/energy`
+**Topic:** `devices/{faculty}/{device_id}/datas`
 
 ```json
 {
-  "device_id": "SM015",
-  "timestamp": "2024-07-27T14:30:00.000Z",
+  "device_id": "ENG_SM_LAB_01",
+  "timestamp": "2024-08-19T14:30:00.000Z",
   "energy_data": {
-    "current_reading": 1250.75,
     "voltage": 235.2,
-    "current_amperage": 45.8,
+    "current": 45.8,
     "power_factor": 0.92,
     "frequency": 50.1,
     "total_power": 10760.5,

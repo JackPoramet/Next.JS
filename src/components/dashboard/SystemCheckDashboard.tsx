@@ -89,8 +89,31 @@ export default function SystemCheckDashboard() {
     return 'unknown';
   };
 
+  const getDeviceIdFromTopic = (topic: string) => {
+    const parts = topic.split('/');
+    if (parts.length >= 3) {
+      return parts[2];
+    }
+    return 'unknown';
+  };
+
+  const getTopicType = (topic: string) => {
+    const parts = topic.split('/');
+    if (parts.length >= 4) {
+      return parts[3]; // 'datas' or 'prop'
+    }
+    return 'unknown';
+  };
+
   const getFilteredTopics = () => {
     let filteredTopics = mqttTopics;
+    
+    // Filter only 'datas' topics for display
+    filteredTopics = Object.fromEntries(
+      Object.entries(filteredTopics).filter(([topic]) => 
+        getTopicType(topic) === 'datas'
+      )
+    );
     
     if (topicFilter) {
       filteredTopics = Object.fromEntries(
@@ -303,7 +326,7 @@ export default function SystemCheckDashboard() {
   const { isConnected } = useSSE({
     onMessage: (message) => {
       try {
-        console.log('📨 SSE message received:', message);
+        console.log('🎯 CLIENT: SSE message received in SystemCheckDashboard:', message);
         
         // รองรับทั้ง format เก่าและใหม่
         let topic: string | undefined, payload: any = undefined, messageType: string = 'unknown';
@@ -313,20 +336,22 @@ export default function SystemCheckDashboard() {
           topic = message.data.topic;
           payload = message.data.payload;
           messageType = 'mqtt';
-        } else if (message.type === 'data' && message.data && message.data.topic) {
-          // Format ใหม่: {type: 'data', data: {topic: '...', data: '...', timestamp: '...'}}
-          topic = message.data.topic;
-          payload = message.data.data;
+          console.log('🔄 CLIENT: Using old MQTT format');
+        } else if (message.type === 'data' && message.topic && message.data) {
+          // Format ใหม่: {type: 'data', topic: '...', data: '...', timestamp: '...'}
+          topic = message.topic;
+          payload = message.data;
           messageType = 'direct';
+          console.log('🔄 CLIENT: Using new direct format');
         }
         
         if (topic && payload !== undefined) {
           const timestamp = message.timestamp || new Date().toISOString();
           
-          console.log('📡 Processing MQTT topic:', topic, 'with payload:', payload, 'type:', messageType);
+          console.log('📡 CLIENT: Processing MQTT topic:', topic, 'with payload:', payload, 'type:', messageType);
           
           setMqttTopics(prev => {
-            console.log('📊 Current topics before update:', Object.keys(prev));
+            console.log('📊 CLIENT: Current topics before update:', Object.keys(prev), 'total:', Object.keys(prev).length);
             const existingTopic = prev[topic as string];
             const newTopics = {
               ...prev,
@@ -337,36 +362,48 @@ export default function SystemCheckDashboard() {
                 count: existingTopic ? existingTopic.count + 1 : 1
               }
             };
-            console.log('📊 Updated topics:', Object.keys(newTopics));
-            console.log('📊 Topic data for', topic, ':', newTopics[topic as string]);
+            console.log('📊 CLIENT: Updated topics:', Object.keys(newTopics), 'total:', Object.keys(newTopics).length);
+            console.log('📊 CLIENT: Topic data for', topic, ':', newTopics[topic as string]);
             return newTopics;
           });
           
           setTotalMqttMessages(prev => {
             const newCount = prev + 1;
-            console.log('📈 Total MQTT messages:', newCount);
+            console.log('📈 CLIENT: Total MQTT messages updated:', newCount);
             return newCount;
           });
         } else {
-          console.log('📨 Message does not contain MQTT data:', message);
+          console.log('❌ CLIENT: Message does not contain MQTT data:', message);
+          console.log('❌ CLIENT: Message type:', message.type);
+          console.log('❌ CLIENT: Message structure:', JSON.stringify(message, null, 2));
         }
       } catch (error) {
-        console.error('❌ Error processing SSE message:', error);
-        console.error('❌ Raw message that failed to parse:', message);
+        console.error('❌ CLIENT: Error processing SSE message:', error);
+        console.error('❌ CLIENT: Raw message that failed to parse:', message);
       }
     }
   });
 
   // อัปเดต MQTT connection status จาก SSE
   useEffect(() => {
+    console.log('🔗 CLIENT: SSE isConnected changed:', isConnected);
     if (isConnected) {
       setMqttConnectionStatus('connected');
-      console.log('✅ SSE connected for MQTT monitoring');
+      console.log('✅ CLIENT: SSE connected for MQTT monitoring');
     } else {
       setMqttConnectionStatus('disconnected');
-      console.log('❌ SSE disconnected from MQTT monitoring');
+      console.log('❌ CLIENT: SSE disconnected from MQTT monitoring');
     }
   }, [isConnected]);
+
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('📊 CLIENT: totalMqttMessages updated:', totalMqttMessages);
+  }, [totalMqttMessages]);
+
+  useEffect(() => {
+    console.log('📊 CLIENT: mqttTopics updated:', Object.keys(mqttTopics), 'total:', Object.keys(mqttTopics).length);
+  }, [mqttTopics]);
 
   // Test API endpoint
   const handleTestApi = async () => {
@@ -693,6 +730,9 @@ export default function SystemCheckDashboard() {
             <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
               {totalMqttMessages} messages
             </span>
+            <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+              {Object.keys(mqttTopics).length} topics
+            </span>
           </div>
         </div>
 
@@ -766,7 +806,7 @@ export default function SystemCheckDashboard() {
             </p>
             <p className="text-sm mt-2 text-gray-600">
               {Object.keys(mqttTopics).length === 0 
-                ? 'Send test data or check WebSocket connection' 
+                ? 'Send test data or check SSE connection' 
                 : 'Try adjusting your search or department filter'
               }
             </p>
@@ -783,7 +823,7 @@ export default function SystemCheckDashboard() {
                         <div className="flex items-center space-x-2">
                           <span className="text-lg">{getDepartmentIcon(department)}</span>
                           <h4 className="text-sm font-medium text-gray-900 truncate" title={topicKey}>
-                            {topicKey.split('/').pop() || 'Unknown'}
+                            {getDeviceIdFromTopic(topicKey)}
                           </h4>
                         </div>
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
@@ -804,18 +844,193 @@ export default function SystemCheckDashboard() {
                 })}
               </div>
             )}
+
+            {viewMode === 'list' && (
+              <div className="space-y-4">
+                {Object.entries(getFilteredTopics()).map(([topicKey, topicData]) => {
+                  const department = getDepartmentFromTopic(topicKey);
+                  
+                  // Determine status based on last update time
+                  const lastUpdate = topicData?.timestamp || new Date().toISOString();
+                  const now = new Date().getTime();
+                  const updateTime = new Date(lastUpdate).getTime();
+                  const isOnline = (now - updateTime) <= 60000; // 1 minute timeout
+                  const status = isOnline ? 'online' : 'offline';
+                  
+                  return (
+                    <div key={topicKey} className="bg-gray-50 rounded-lg p-4 border">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-xl">{getDepartmentIcon(department)}</span>
+                          <div>
+                            <h4 className="text-base font-medium text-gray-900" title={topicKey}>
+                              {getDeviceIdFromTopic(topicKey)}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              📍 {department.replace('_', ' ')} • 🕒 {topicData?.timestamp ? new Date(topicData.timestamp).toLocaleTimeString() : 'Unknown'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                            {topicData?.count || 0} messages
+                          </span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            status === 'online' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {status}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded p-3 border">
+                        <details className="cursor-pointer">
+                          <summary className="text-sm font-medium text-gray-700 hover:text-gray-900">
+                            📊 Latest Data
+                          </summary>
+                          <pre className="text-xs text-gray-800 whitespace-pre-wrap font-mono mt-2 max-h-48 overflow-y-auto">
+                            {topicData?.data ? JSON.stringify(topicData.data, null, 2) : 'No data available'}
+                          </pre>
+                        </details>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {viewMode === 'table' && (
+              <div className="bg-white rounded-lg border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Device
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Department
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Messages
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Last Update
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Key Metrics
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {Object.entries(getFilteredTopics()).map(([topicKey, topicData]) => {
+                        const department = getDepartmentFromTopic(topicKey);
+                        const deviceId = getDeviceIdFromTopic(topicKey);
+                        
+                        // Determine status based on last update time
+                        const lastUpdate = topicData?.timestamp || new Date().toISOString();
+                        const now = new Date().getTime();
+                        const updateTime = new Date(lastUpdate).getTime();
+                        const isOnline = (now - updateTime) <= 60000; // 1 minute timeout
+                        const status = isOnline ? 'online' : 'offline';
+                        
+                        const energyData = topicData?.data?.energy_data;
+                        const envData = topicData?.data?.environmental_data;
+                        
+                        return (
+                          <tr key={topicKey} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <span className="text-lg mr-2">{getDepartmentIcon(department)}</span>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{deviceId}</div>
+                                  <div className="text-sm text-gray-500 truncate max-w-xs" title={topicKey}>
+                                    {topicKey}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-900">
+                                {department.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                status === 'online' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {topicData?.count || 0}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {topicData?.timestamp ? new Date(topicData.timestamp).toLocaleString() : 'Unknown'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <div className="space-y-1">
+                                {energyData && (
+                                  <div className="flex space-x-4">
+                                    {energyData.voltage && (
+                                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                                        ⚡ {energyData.voltage}V
+                                      </span>
+                                    )}
+                                    {energyData.active_power && (
+                                      <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
+                                        🔋 {energyData.active_power.toFixed(1)}W
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                {envData && envData.temperature && (
+                                  <div className="flex space-x-4">
+                                    <span className="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">
+                                      🌡️ {envData.temperature}°C
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </>
         )}
 
         <div className="bg-blue-50 rounded-lg p-4 mt-6">
           <h3 className="text-sm font-medium text-blue-900 mb-4">📋 MQTT Topic Patterns</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm text-blue-800">
-            <div>🔧 devices/engineering/+</div>
-            <div>🏛️ devices/institution/+</div>
-            <div>📚 devices/liberal_arts/+</div>
-            <div>💼 devices/business_administration/+</div>
-            <div>🏗️ devices/architecture/+</div>
-            <div>⚙️ devices/industrial_education/+</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-blue-800">
+            <div className="space-y-1">
+              <div className="font-medium">� Data Topics:</div>
+              <div>�🔧 devices/engineering/+/datas</div>
+              <div>🏛️ devices/institution/+/datas</div>
+              <div>📚 devices/liberal_arts/+/datas</div>
+              <div>💼 devices/business_administration/+/datas</div>
+              <div>🏗️ devices/architecture/+/datas</div>
+              <div>⚙️ devices/industrial_education/+/datas</div>
+            </div>
+            <div className="space-y-1">
+              <div className="font-medium">⚙️ Property Topics:</div>
+              <div>🔧 devices/engineering/+/prop</div>
+              <div>🏛️ devices/institution/+/prop</div>
+              <div>📚 devices/liberal_arts/+/prop</div>
+              <div>💼 devices/business_administration/+/prop</div>
+              <div>🏗️ devices/architecture/+/prop</div>
+              <div>⚙️ devices/industrial_education/+/prop</div>
+            </div>
           </div>
         </div>
       </div>

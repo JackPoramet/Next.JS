@@ -43,6 +43,11 @@ export function broadcastToSSE(topic: string, data: any) {
     totalConnections: activeConnections.size
   };
   
+  // Debug: Log broadcast attempt
+  console.log(`📡 Starting SSE broadcast for topic: ${topic}`);
+  console.log(`📊 Active SSE connections: ${activeConnections.size}`);
+  console.log(`📋 Message to broadcast:`, JSON.stringify(message, null, 2));
+  
   let successCount = 0;
   let errorCount = 0;
   

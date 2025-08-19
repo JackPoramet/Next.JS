@@ -2,6 +2,74 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { authenticateAndUpdateLogin } from '@/lib/user-auth';
 
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: User authentication
+ *     description: Authenticate user credentials and return JWT token
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             admin:
+ *               summary: Admin Login
+ *               value:
+ *                 email: "admin@iot-energy.com"
+ *                 password: "Admin123!"
+ *             manager:
+ *               summary: Manager Login  
+ *               value:
+ *                 email: "manager@iot-energy.com"
+ *                 password: "Manager123!"
+ *             user:
+ *               summary: User Login
+ *               value:
+ *                 email: "user@iot-energy.com"
+ *                 password: "User123!"
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LoginResponse'
+ *         headers:
+ *           Set-Cookie:
+ *             description: HttpOnly JWT token cookie
+ *             schema:
+ *               type: string
+ *               example: "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Path=/; Max-Age=86400"
+ *       400:
+ *         description: Bad request - Missing credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Email and password are required"
+ *       401:
+ *         description: Unauthorized - Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Invalid credentials"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 export async function POST(request: NextRequest) {
   console.log('[DEBUG] API Login endpoint called');
   

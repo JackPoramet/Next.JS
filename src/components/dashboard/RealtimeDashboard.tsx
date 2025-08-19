@@ -25,7 +25,51 @@ export default function RealtimeDashboard() {
   const [showAllFaculties, setShowAllFaculties] = useState<boolean>(true);
   const [hostInfo, setHostInfo] = useState<string>('');
 
-  // Faculty configuration with icons and display names
+  // Timeout duration for offline detection (1 minute)
+  const OFFLINE_TIMEOUT = 60 * 1000; // 1 minute in milliseconds
+
+  // Helper function to check if device is online based on last update time
+  const isDeviceOnline = (lastUpdate: string) => {
+    const now = new Date().getTime();
+    const updateTime = new Date(lastUpdate).getTime();
+    return (now - updateTime) <= OFFLINE_TIMEOUT;
+  };
+
+  // Helper function to get device status
+  const getDeviceStatus = (deviceData: any) => {
+    const lastUpdate = deviceData.lastUpdate || deviceData.timestamp;
+    return isDeviceOnline(lastUpdate) ? 'online' : 'offline';
+  };
+
+  // Periodic check for offline devices
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDevicesByFaculty(prev => {
+        const updated = { ...prev };
+        let hasChanges = false;
+        
+        Object.keys(updated).forEach(faculty => {
+          Object.keys(updated[faculty]).forEach(deviceKey => {
+            const device = updated[faculty][deviceKey];
+            const currentStatus = getDeviceStatus(device);
+            const storedStatus = device.computedStatus || 'online';
+            
+            if (currentStatus !== storedStatus) {
+              updated[faculty][deviceKey] = {
+                ...device,
+                computedStatus: currentStatus
+              };
+              hasChanges = true;
+            }
+          });
+        });
+        
+        return hasChanges ? updated : prev;
+      });
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [OFFLINE_TIMEOUT]);
   const facultyConfig: {[key: string]: {name: string, icon: string, color: string}} = {
     'engineering': { name: 'คณะวิศวกรรมศาสตร์', icon: '🔧', color: 'blue' },
     'institution': { name: 'สถาบันเทคโนโลยี', icon: '🏛️', color: 'purple' },
@@ -41,11 +85,15 @@ export default function RealtimeDashboard() {
     
     console.log(`📊 Processing SSE data for topic: ${topic}`);
     
-    // Extract faculty and device from topic (e.g., "devices/engineering/device1")
+    // Extract faculty and device from topic (e.g., "devices/engineering/device1/datas")
     const topicParts = topic.split('/');
-    if (topicParts.length >= 3 && topicParts[0] === 'devices') {
+    
+    // Only process topics ending with '/datas'
+    if (topicParts.length >= 4 && topicParts[0] === 'devices' && topicParts[3] === 'datas') {
       const faculty = topicParts[1];
       const deviceKey = topicParts[2];
+      
+      console.log(`📡 Processing datas topic for faculty: ${faculty}, device: ${deviceKey}`);
       
       // อัปเดต devices by faculty
       setDevicesByFaculty(prev => {
@@ -56,7 +104,8 @@ export default function RealtimeDashboard() {
         updated[faculty][deviceKey] = {
           ...data,
           lastUpdate: new Date().toISOString(),
-          topic: topic
+          topic: topic,
+          computedStatus: 'online' // Device is online if sending data
         };
         return updated;
       });
@@ -71,6 +120,8 @@ export default function RealtimeDashboard() {
         });
         return allDevices.size;
       });
+    } else {
+      console.log(`⏭️ Skipping non-datas topic: ${topic}`);
     }
     
     // Handle meter data if applicable
@@ -377,60 +428,81 @@ export default function RealtimeDashboard() {
                     <p className="text-gray-500 italic">No devices found</p>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {Object.entries(devices).map(([deviceKey, deviceData]) => (
+                      {Object.entries(devices).map(([deviceKey, deviceData]) => {
+                        const deviceStatus = getDeviceStatus(deviceData);
+                        return (
                         <div key={deviceKey} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="font-semibold text-gray-800">
                               📱 {deviceKey}
                             </h4>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              deviceData.status === 'online' ? 'bg-green-100 text-green-800' :
-                              deviceData.status === 'offline' ? 'bg-red-100 text-red-800' :
-                              deviceData.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
+                              deviceStatus === 'online' ? 'bg-green-100 text-green-800' :
+                              'bg-red-100 text-red-800'
                             }`}>
-                              {deviceData.status || 'unknown'}
+                              {deviceStatus}
                             </span>
                           </div>
                           
                           <div className="space-y-2 text-sm">
-                            {deviceData.voltage && (
+                            {/* Energy Data */}
+                            {deviceData.energy_data?.voltage && (
                               <div className="flex justify-between">
                                 <span className="text-gray-600">Voltage:</span>
-                                <span className="font-medium">{deviceData.voltage}V</span>
+                                <span className="font-medium">{deviceData.energy_data.voltage}V</span>
                               </div>
                             )}
-                            {deviceData.current && (
+                            {deviceData.energy_data?.current && (
                               <div className="flex justify-between">
                                 <span className="text-gray-600">Current:</span>
-                                <span className="font-medium">{deviceData.current}A</span>
+                                <span className="font-medium">{deviceData.energy_data.current}A</span>
                               </div>
                             )}
-                            {deviceData.power && (
+                            {deviceData.energy_data?.active_power && (
                               <div className="flex justify-between">
                                 <span className="text-gray-600">Power:</span>
-                                <span className="font-medium">{deviceData.power}W</span>
+                                <span className="font-medium">{deviceData.energy_data.active_power.toFixed(1)}W</span>
                               </div>
                             )}
-                            {deviceData.energy && (
+                            {deviceData.energy_data?.frequency && (
                               <div className="flex justify-between">
-                                <span className="text-gray-600">Energy:</span>
-                                <span className="font-medium">{deviceData.energy}kWh</span>
+                                <span className="text-gray-600">Frequency:</span>
+                                <span className="font-medium">{deviceData.energy_data.frequency}Hz</span>
                               </div>
                             )}
-                            {deviceData.temperature && (
+                            {deviceData.energy_data?.power_factor && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Power Factor:</span>
+                                <span className="font-medium">{deviceData.energy_data.power_factor}</span>
+                              </div>
+                            )}
+                            
+                            {/* Environmental Data */}
+                            {deviceData.environmental_data?.temperature && (
                               <div className="flex justify-between">
                                 <span className="text-gray-600">Temperature:</span>
-                                <span className="font-medium">{deviceData.temperature}°C</span>
+                                <span className="font-medium">{deviceData.environmental_data.temperature}°C</span>
                               </div>
                             )}
+                            
+                            {/* Device Status */}
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Status:</span>
+                              <span className={`font-medium ${
+                                deviceStatus === 'online' ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {deviceStatus}
+                              </span>
+                            </div>
+                            
                             <div className="flex justify-between text-xs text-gray-500 mt-3 pt-2 border-t">
                               <span>Last Update:</span>
                               <span>{formatTimestamp(deviceData.lastUpdate || deviceData.timestamp)}</span>
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

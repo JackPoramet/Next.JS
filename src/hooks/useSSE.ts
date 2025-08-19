@@ -139,6 +139,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
         
         try {
           const message: SSEMessage = JSON.parse(event.data);
+          console.log('📨 SSE message received in hook:', message);
           setLastMessage(message);
           
           // อัปเดตสถิติ connection
@@ -149,6 +150,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
             });
           }
           
+          console.log('🔄 Calling onMessage callback with:', message);
           callbacksRef.current.onMessage?.(message);
         } catch (parseError) {
           console.error('❌ Error parsing SSE message:', parseError);

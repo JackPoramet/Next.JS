@@ -7,11 +7,41 @@
 -- 3. devices_data: ข้อมูลปัจจุบันแบบ real-time (ข้อมูลล่าสุด)
 -- 4. devices_history: ข้อมูลประวัติศาสตร์ (เก็บข้อมูลย้อนหลัง)
 
+-- ========================================
+-- CLEAN UP EXISTING OBJECTS (IF EXISTS)
+-- ========================================
+
+-- Drop views first (they depend on tables)
+DROP VIEW IF EXISTS devices_complete CASCADE;
+DROP VIEW IF EXISTS devices_dashboard CASCADE;
+DROP VIEW IF EXISTS devices_monitoring CASCADE;
+
+-- Drop functions
+DROP FUNCTION IF EXISTS calculate_energy_consumption(VARCHAR(100), DATE, DATE) CASCADE;
+DROP FUNCTION IF EXISTS cleanup_old_history_data(INTEGER) CASCADE;
+DROP FUNCTION IF EXISTS immutable_date_trunc_day(timestamp with time zone) CASCADE;
+DROP FUNCTION IF EXISTS immutable_date_trunc_hour(timestamp with time zone) CASCADE;
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+DROP FUNCTION IF EXISTS create_initial_device_data() CASCADE;
+DROP FUNCTION IF EXISTS archive_device_data() CASCADE;
+
+-- Drop tables in correct order (child tables first)
+DROP TABLE IF EXISTS devices_history CASCADE;
+DROP TABLE IF EXISTS devices_data CASCADE;
+DROP TABLE IF EXISTS devices_prop CASCADE;
+DROP TABLE IF EXISTS meter_prop CASCADE;
+
+-- Drop ENUM types
+DROP TYPE IF EXISTS device_status_enum CASCADE;
+DROP TYPE IF EXISTS network_status_enum CASCADE;
+DROP TYPE IF EXISTS meter_type_enum CASCADE;
+DROP TYPE IF EXISTS connection_type_enum CASCADE;
+
 -- สร้าง ENUM types สำหรับข้อมูลที่มีค่าจำกัด
 CREATE TYPE device_status_enum AS ENUM ('active', 'inactive', 'maintenance', 'error');
-CREATE TYPE network_status_enum AS ENUM ('online', 'offline', 'connecting', 'error');
-CREATE TYPE meter_type_enum AS ENUM ('digital', 'analog', 'smart');
-CREATE TYPE connection_type_enum AS ENUM ('wifi', 'ethernet', 'cellular', 'lora');
+CREATE TYPE network_status_enum AS ENUM ('online', 'offline', 'error');
+CREATE TYPE meter_type_enum AS ENUM ('digital', 'analog');
+CREATE TYPE connection_type_enum AS ENUM ('wifi', 'ethernet');
 
 -- ================================================================
 -- TABLE 1: METER_PROP (Meter Technical Specifications)
@@ -19,7 +49,7 @@ CREATE TYPE connection_type_enum AS ENUM ('wifi', 'ethernet', 'cellular', 'lora'
 -- วัตถุประสงค์: เก็บข้อมูลสเปคทางเทคนิคของมิเตอร์แต่ละรุ่น
 -- ใช้เป็น Master Data สำหรับรุ่นมิเตอร์ต่างๆ
 
-CREATE TABLE IF NOT EXISTS meter_prop (
+CREATE TABLE meter_prop (
     -- Primary Key
     meter_model_id VARCHAR(50) PRIMARY KEY, -- รหัสรุ่นมิเตอร์ เช่น 'SM-2000', 'AM-150'
     
@@ -34,20 +64,7 @@ CREATE TABLE IF NOT EXISTS meter_prop (
     rated_power DECIMAL(10,2) CHECK (rated_power > 0), -- กำลังที่กำหนด (W)
     accuracy_class VARCHAR(10), -- ความแม่นยำ เช่น '1.0', '0.5S'
     frequency DECIMAL(5,2) DEFAULT 50.0, -- ความถี่ (Hz)
-    
-    -- Communication Capabilities
-    supported_protocols TEXT[], -- โปรโตคอลที่รองรับ เช่น ['Modbus', 'TCP/IP']
-    communication_interface VARCHAR(100), -- RS485, Ethernet, WiFi
-    
-    -- Physical Properties
-    operating_temp_min DECIMAL(5,2), -- อุณหภูมิการทำงานต่ำสุด (°C)
-    operating_temp_max DECIMAL(5,2), -- อุณหภูมิการทำงานสูงสุด (°C)
-    ip_rating VARCHAR(10), -- มาตรฐานกันน้ำ เช่น 'IP65'
-    
-    -- Documentation
-    datasheet_url VARCHAR(500), -- URL เอกสารข้อมูลจำเพาะ
-    manual_url VARCHAR(500), -- URL คู่มือการใช้งาน
-    
+
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -59,7 +76,7 @@ CREATE TABLE IF NOT EXISTS meter_prop (
 -- วัตถุประสงค์: เก็บข้อมูลอุปกรณ์จริงแต่ละตัวที่ติดตั้งในสถานที่จริง
 -- หนึ่ง device หนึ่ง record แต่ละตัวมี serial number เฉพาะตัว
 
-CREATE TABLE IF NOT EXISTS devices_prop (
+CREATE TABLE devices_prop (
     -- Primary Key
     id SERIAL PRIMARY KEY,
     
@@ -71,7 +88,6 @@ CREATE TABLE IF NOT EXISTS devices_prop (
     meter_model_id VARCHAR(50), -- อ้างอิงไปยัง meter_prop (รุ่นมิเตอร์)
     
     -- Physical Device Information
-    serial_number VARCHAR(100) UNIQUE, -- หมายเลขซีเรียลเฉพาะตัว
     firmware_version VARCHAR(50), -- เวอร์ชันเฟิร์มแวร์ปัจจุบัน
     hardware_revision VARCHAR(50), -- รุ่นฮาร์ดแวร์
     
@@ -121,7 +137,7 @@ CREATE TABLE IF NOT EXISTS devices_prop (
 -- วัตถุประสงค์: เก็บข้อมูลปัจจุบัน/ล่าสุดของอุปกรณ์แต่ละตัว
 -- อัปเดตบ่อย เก็บเฉพาะค่าล่าสุด (Latest State)
 
-CREATE TABLE IF NOT EXISTS devices_data (
+CREATE TABLE devices_data (
     -- Primary Key
     id SERIAL PRIMARY KEY,
     
@@ -178,7 +194,7 @@ CREATE TABLE IF NOT EXISTS devices_data (
 -- วัตถุประสงค์: เก็บข้อมูลประวัติศาสตร์สำหรับการวิเคราะห์แนวโน้มและรายงาน
 -- เก็บข้อมูลแบบ Time-Series สำหรับ Analytics และ Reporting
 
-CREATE TABLE IF NOT EXISTS devices_history (
+CREATE TABLE devices_history (
     -- Primary Key (ใช้ BIGSERIAL เพื่อรองรับข้อมูลจำนวนมาก)
     id BIGSERIAL PRIMARY KEY,
     
@@ -270,68 +286,83 @@ CREATE TABLE IF NOT EXISTS devices_history (
 - ดูประวัติ 7 วัน: SELECT * FROM devices_history WHERE device_id = 'DEV001' AND recorded_at > NOW() - INTERVAL '7 days'
 */
 -- ================================
+-- UTILITY FUNCTIONS (สร้างก่อนใช้ใน INDEX)
+-- ================================
+
+-- สร้าง IMMUTABLE functions สำหรับ date truncation (สำหรับใช้ใน INDEX)
+CREATE FUNCTION immutable_date_trunc_day(timestamp with time zone)
+RETURNS date AS $$
+BEGIN
+    RETURN $1::date;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+CREATE FUNCTION immutable_date_trunc_hour(timestamp with time zone)
+RETURNS timestamp with time zone AS $$
+BEGIN
+    RETURN date_trunc('hour', $1);
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ================================
 -- IMPROVED INDEXES FOR PERFORMANCE
 -- ================================
 
 -- Indexes for meter_prop table (Master Data)
-CREATE INDEX IF NOT EXISTS idx_meter_prop_manufacturer ON meter_prop(manufacturer);
-CREATE INDEX IF NOT EXISTS idx_meter_prop_meter_type ON meter_prop(meter_type);
-CREATE INDEX IF NOT EXISTS idx_meter_prop_rated_power ON meter_prop(rated_power);
+CREATE INDEX idx_meter_prop_manufacturer ON meter_prop(manufacturer);
+CREATE INDEX idx_meter_prop_meter_type ON meter_prop(meter_type);
+CREATE INDEX idx_meter_prop_rated_power ON meter_prop(rated_power);
 
 -- Indexes for devices_prop table (Device Configuration)
-CREATE INDEX IF NOT EXISTS idx_devices_prop_device_id ON devices_prop(device_id);
-CREATE INDEX IF NOT EXISTS idx_devices_prop_meter_model ON devices_prop(meter_model_id);
-CREATE INDEX IF NOT EXISTS idx_devices_prop_faculty_building ON devices_prop(faculty, building);
-CREATE INDEX IF NOT EXISTS idx_devices_prop_status_enabled ON devices_prop(status, is_enabled);
-CREATE INDEX IF NOT EXISTS idx_devices_prop_install_date ON devices_prop(install_date);
-CREATE INDEX IF NOT EXISTS idx_devices_prop_serial ON devices_prop(serial_number);
+CREATE INDEX idx_devices_prop_device_id ON devices_prop(device_id);
+CREATE INDEX idx_devices_prop_meter_model ON devices_prop(meter_model_id);
+CREATE INDEX idx_devices_prop_faculty_building ON devices_prop(faculty, building);
+CREATE INDEX idx_devices_prop_status_enabled ON devices_prop(status, is_enabled);
+CREATE INDEX idx_devices_prop_install_date ON devices_prop(install_date);
 
 -- Indexes for devices_data table (Real-time Data)
-CREATE INDEX IF NOT EXISTS idx_devices_data_device_id ON devices_data(device_id);
-CREATE INDEX IF NOT EXISTS idx_devices_data_network_status ON devices_data(network_status);
-CREATE INDEX IF NOT EXISTS idx_devices_data_last_data_received ON devices_data(last_data_received DESC);
-CREATE INDEX IF NOT EXISTS idx_devices_data_updated_at ON devices_data(updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_devices_data_active_power ON devices_data(active_power);
-CREATE INDEX IF NOT EXISTS idx_devices_data_device_temp ON devices_data(device_temperature);
-CREATE INDEX IF NOT EXISTS idx_devices_data_voltage_current ON devices_data(voltage, current_amperage);
+CREATE INDEX idx_devices_data_device_id ON devices_data(device_id);
+CREATE INDEX idx_devices_data_network_status ON devices_data(network_status);
+CREATE INDEX idx_devices_data_last_data_received ON devices_data(last_data_received DESC);
+CREATE INDEX idx_devices_data_updated_at ON devices_data(updated_at DESC);
+CREATE INDEX idx_devices_data_active_power ON devices_data(active_power);
+CREATE INDEX idx_devices_data_device_temp ON devices_data(device_temperature);
+CREATE INDEX idx_devices_data_voltage_current ON devices_data(voltage, current_amperage);
 
 -- Indexes for devices_history table (Time-Series Data)
-CREATE INDEX IF NOT EXISTS idx_devices_history_device_time ON devices_history(device_id, recorded_at DESC);
-CREATE INDEX IF NOT EXISTS idx_devices_history_recorded_at ON devices_history(recorded_at DESC);
-CREATE INDEX IF NOT EXISTS idx_devices_history_device_daily ON devices_history(device_id, date_trunc('day', recorded_at));
-CREATE INDEX IF NOT EXISTS idx_devices_history_device_hourly ON devices_history(device_id, date_trunc('hour', recorded_at));
+-- INDEX สำหรับ devices_history
+CREATE INDEX idx_devices_history_device_time ON devices_history(device_id, recorded_at DESC);
+CREATE INDEX idx_devices_history_recorded_at ON devices_history(recorded_at DESC);
+-- สร้าง INDEX ด้วย IMMUTABLE functions
+CREATE INDEX idx_devices_history_device_daily ON devices_history(device_id, immutable_date_trunc_day(recorded_at));
+CREATE INDEX idx_devices_history_device_hourly ON devices_history(device_id, immutable_date_trunc_hour(recorded_at));
 
 -- ================================
 -- UTILITY FUNCTIONS (CONTINUED)
 -- ================================
 
 -- สร้าง function สำหรับ update timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $
+CREATE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- Trigger สำหรับ auto-update updated_at
-CREATE OR REPLACE TRIGGER update_devices_prop_updated_at 
+CREATE TRIGGER update_devices_prop_updated_at 
     BEFORE UPDATE ON devices_prop 
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();
 
-CREATE OR REPLACE TRIGGER update_devices_data_updated_at 
+CREATE TRIGGER update_devices_data_updated_at 
     BEFORE UPDATE ON devices_data 
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();
 
-CREATE OR REPLACE TRIGGER update_device_alerts_updated_at 
-    BEFORE UPDATE ON device_alerts 
-    FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
-
 -- Trigger สำหรับสร้าง devices_data เมื่อเพิ่ม devices_prop ใหม่
-CREATE OR REPLACE FUNCTION create_initial_device_data()
+CREATE FUNCTION create_initial_device_data()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO devices_data (device_id, network_status, created_at, updated_at)
@@ -340,13 +371,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER trigger_create_initial_device_data
+CREATE TRIGGER trigger_create_initial_device_data
     AFTER INSERT ON devices_prop
     FOR EACH ROW
     EXECUTE FUNCTION create_initial_device_data();
 
 -- Trigger สำหรับ auto-archive ข้อมูลเก่าไปยัง history table
-CREATE OR REPLACE FUNCTION archive_device_data()
+CREATE FUNCTION archive_device_data()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Archive significant changes only
@@ -367,7 +398,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER trigger_archive_device_data
+CREATE TRIGGER trigger_archive_device_data
     AFTER UPDATE ON devices_data
     FOR EACH ROW
     EXECUTE FUNCTION archive_device_data();
@@ -377,19 +408,18 @@ CREATE OR REPLACE TRIGGER trigger_archive_device_data
 -- ================================
 
 -- View รวมข้อมูลจาก 2 ตาราง (ปรับปรุง)
-CREATE OR REPLACE VIEW devices_complete AS
+CREATE VIEW devices_complete AS
 SELECT 
     -- From devices_prop
     dp.id as prop_id,
     dp.device_id,
-    dp.name,
+    dp.device_name as name,
     dp.faculty,
     dp.building,
-    dp.meter_type,
+    dp.meter_model_id as meter_type,
     dp.connection_type,
-    dp.device_model,
-    dp.manufacturer,
-    dp.serial_number,
+    dp.hardware_revision as device_model,
+    mp.manufacturer,
     dp.firmware_version,
     dp.install_date,
     dp.status as device_status,
@@ -429,10 +459,11 @@ SELECT
     dd.updated_at as data_updated_at
 
 FROM devices_prop dp
-LEFT JOIN devices_data dd ON dp.device_id = dd.device_id;
+LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
+LEFT JOIN meter_prop mp ON dp.meter_model_id = mp.meter_model_id;
 
 -- View สำหรับ dashboard (ปรับปรุง)
-CREATE OR REPLACE VIEW devices_dashboard AS
+CREATE VIEW devices_dashboard AS
 SELECT 
     dp.device_id,
     dp.device_name,
@@ -466,7 +497,7 @@ LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
 WHERE dp.is_enabled = true;
 
 -- View สำหรับ monitoring และ alerts
-CREATE OR REPLACE VIEW devices_monitoring AS
+CREATE VIEW devices_monitoring AS
 SELECT 
     dp.device_id,
     dp.device_name,
@@ -492,7 +523,7 @@ WHERE dp.is_enabled = true AND dp.status = 'active';
 -- ================================
 
 -- Function สำหรับคำนวณพลังงานรวม
-CREATE OR REPLACE FUNCTION calculate_energy_consumption(
+CREATE FUNCTION calculate_energy_consumption(
     device_id_param VARCHAR(100),
     start_date DATE,
     end_date DATE
@@ -518,7 +549,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function สำหรับ cleanup ข้อมูลเก่า
-CREATE OR REPLACE FUNCTION cleanup_old_history_data(days_to_keep INTEGER DEFAULT 365)
+CREATE FUNCTION cleanup_old_history_data(days_to_keep INTEGER DEFAULT 365)
 RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
@@ -544,7 +575,6 @@ COMMENT ON TABLE devices_history IS 'ข้อมูลประวัติแ�
 -- Column Comments สำหรับ meter_prop
 COMMENT ON COLUMN meter_prop.meter_model_id IS 'รหัสรุ่นมิเตอร์ เช่น SM-2000, AM-150';
 COMMENT ON COLUMN meter_prop.accuracy_class IS 'ความแม่นยำของมิเตอร์ เช่น 1.0, 0.5S';
-COMMENT ON COLUMN meter_prop.supported_protocols IS 'โปรโตคอลสื่อสารที่รองรับ เช่น Modbus, TCP/IP';
 
 -- Column Comments สำหรับ devices_prop  
 COMMENT ON COLUMN devices_prop.device_id IS 'รหัสอุปกรณ์เฉพาะตัว เช่น DEV001, SM-ENG-001';
@@ -577,15 +607,24 @@ COMMENT ON INDEX idx_meter_prop_manufacturer IS 'Index สำหรับค้�
 
 -- Sample insert สำหรับทดสอบ (uncomment เพื่อใช้งาน)
 /*
-INSERT INTO devices_prop (
-    device_id, name, faculty, building,
-    meter_type, connection_type, rated_voltage, rated_current, rated_power
+-- เพิ่มข้อมูล meter models ก่อน
+INSERT INTO meter_prop (
+    meter_model_id, model_name, manufacturer, meter_type, 
+    rated_voltage, rated_current, rated_power, accuracy_class
 ) VALUES 
-    ('DEV001', 'Smart Meter - Engineering Lab 1', 'Engineering', 'Building A', 'digital', 'wifi', 220.0, 10.0, 2200.0),
-    ('DEV002', 'Power Monitor - Library', 'Liberal Arts', 'Library Building', 'smart', 'ethernet', 380.0, 16.0, 6080.0);
+    ('SM001', 'Smart Meter 2000', 'PowerTech', 'digital', 220.0, 10.0, 2200.0, '1.0'),
+    ('PM001', 'Power Monitor Pro', 'Schneider', 'digital', 380.0, 16.0, 6080.0, '0.5S');
+
+-- เพิ่มข้อมูล devices
+INSERT INTO devices_prop (
+    device_id, device_name, faculty, building,
+    meter_model_id, connection_type
+) VALUES 
+    ('DEV001', 'Smart Meter - Engineering Lab 1', 'Engineering', 'Building A', 'SM001', 'wifi'),
+    ('DEV002', 'Power Monitor - Library', 'Liberal Arts', 'Library Building', 'PM001', 'ethernet');
 
 -- Sample queries สำหรับทดสอบ
 SELECT * FROM devices_dashboard WHERE faculty = 'Engineering';
-SELECT * FROM devices_monitoring WHERE power_high = true;
+SELECT * FROM devices_monitoring WHERE temperature_high = true;
 SELECT * FROM calculate_energy_consumption('DEV001', '2025-01-01', '2025-01-31');
 */

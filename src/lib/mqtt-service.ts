@@ -67,14 +67,20 @@ class MQTTService {
       
       // Define topics to subscribe
       const topicsToSubscribe = [
-        'devices/institution/+',          // Institution department devices
-        'devices/engineering/+',          // Engineering department devices  
-        'devices/liberal_arts/+',         // Liberal Arts department devices
-        'devices/business_administration/+', // Business Administration department devices
-        'devices/architecture/+',         // Architecture department devices
-        'devices/industrial_education/+', // Industrial Education department devices
-        'iot/alerts/+',                   // System alerts
-        'iot/system/status'               // System-wide status
+        'devices/institution/+/datas',   // Institution department device data
+        'devices/institution/+/prop',    // Institution department device properties
+        'devices/engineering/+/datas',   // Engineering department device data
+        'devices/engineering/+/prop',    // Engineering department device properties
+        'devices/liberal_arts/+/datas',  // Liberal Arts department device data
+        'devices/liberal_arts/+/prop',   // Liberal Arts department device properties
+        'devices/business_administration/+/datas', // Business Administration device data
+        'devices/business_administration/+/prop',  // Business Administration device properties
+        'devices/architecture/+/datas',  // Architecture department device data
+        'devices/architecture/+/prop',   // Architecture department device properties
+        'devices/industrial_education/+/datas', // Industrial Education device data
+        'devices/industrial_education/+/prop',  // Industrial Education device properties
+        'iot/alerts/+',                  // System alerts
+        'iot/system/status'              // System-wide status
       ];
       
   // log removed
@@ -98,10 +104,10 @@ class MQTTService {
       try {
         this.messageCount++;
         const data = JSON.parse(message.toString());
-        // Debug logs removed for cleaner console output
-        // console.log(`🎯 MQTT Message #${this.messageCount} received on ${topic}`);
-        // console.log(`📊 Raw message: ${message.toString()}`);
-        // console.log(`📋 Parsed data:`, JSON.stringify(data, null, 2));
+        // Debug logs enabled to track message flow
+        console.log(`🎯 MQTT Message #${this.messageCount} received on ${topic}`);
+        console.log(`📊 Raw message: ${message.toString()}`);
+        console.log(`📋 Parsed data:`, JSON.stringify(data, null, 2));
         
         // Add timestamp if not present
         if (!data.timestamp) {
@@ -109,9 +115,9 @@ class MQTTService {
         }
 
         // Broadcast to all SSE clients
-        // console.log(`🚀 Broadcasting to SSE clients...`);
+        console.log(`🚀 Broadcasting to SSE clients...`);
         broadcastToSSE(topic, data);
-        // console.log(`✅ Broadcast completed for topic: ${topic}`);
+        console.log(`✅ Broadcast completed for topic: ${topic}`);
         
       } catch (error) {
         console.error('❌ Error processing MQTT message:', error);
@@ -126,39 +132,6 @@ class MQTTService {
     this.mqttClient.on('disconnect', () => {
       console.log('Disconnected from MQTT broker');
     });
-  }
-
-  // Method to publish test data (for development)
-  public publishTestData() {
-    if (!this.mqttClient) return;
-
-    // Simulate device data
-    const deviceData: IoTDeviceData = {
-      device_id: 'DEV001',
-      timestamp: new Date().toISOString(),
-      voltage: 220 + Math.random() * 10,
-      current: 5 + Math.random() * 2,
-      power: 1100 + Math.random() * 200,
-      energy: Math.random() * 1000,
-      frequency: 50 + Math.random() * 0.5,
-      power_factor: 0.8 + Math.random() * 0.2,
-      temperature: 25 + Math.random() * 10,
-      status: 'online'
-    };
-
-    // Simulate meter reading
-    const meterData: MeterReading = {
-      meter_id: 'MTR001',
-      timestamp: new Date().toISOString(),
-      total_energy: 15000 + Math.random() * 1000,
-      daily_energy: 50 + Math.random() * 20,
-      monthly_energy: 1500 + Math.random() * 200,
-      peak_demand: 2.5 + Math.random() * 0.5,
-      meter_status: 'active'
-    };
-
-    this.mqttClient?.publish('devices/DEV001/data', JSON.stringify(deviceData));
-    this.mqttClient?.publish('meters/MTR001/reading', JSON.stringify(meterData));
   }
 
   public getConnectionStatus() {

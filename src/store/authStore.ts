@@ -29,7 +29,6 @@ export const useAuthStore = create<AuthState>()(
 
       // Actions
       login: async (credentials: LoginCredentials) => {
-        console.log('[DEBUG] AuthStore - Login started');
         set({ isLoading: true, error: null });
         
         try {
@@ -41,13 +40,9 @@ export const useAuthStore = create<AuthState>()(
             body: JSON.stringify(credentials),
           });
 
-          console.log('[DEBUG] AuthStore - Response status:', response.status);
           const data = await response.json();
-          console.log('[DEBUG] AuthStore - Response data:', data);
 
           if (data.success && data.data.token) {
-            console.log('[DEBUG] AuthStore - Login successful');
-            
             // Store in state
             set({ 
               user: data.data.user, 
@@ -55,10 +50,7 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
               error: null
             });
-            
-            console.log('[DEBUG] AuthStore - User and token stored in state');
           } else {
-            console.log('[DEBUG] AuthStore - Login failed:', data.message);
             set({ 
               error: data.message || 'เข้าสู่ระบบไม่สำเร็จ',
               isLoading: false 
@@ -66,7 +58,6 @@ export const useAuthStore = create<AuthState>()(
             throw new Error(data.message || 'เข้าสู่ระบบไม่สำเร็จ');
           }
         } catch (error) {
-          console.error('[DEBUG] AuthStore - Login error:', error);
           const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
           set({ 
             error: errorMessage,
@@ -77,7 +68,6 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        console.log('[DEBUG] AuthStore - Logout');
         
         // Remove cookie
         removeCookie('auth-token');
