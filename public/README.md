@@ -1,6 +1,7 @@
 # 🌟 IoT Electric Energy Management System
 
-> ระบบจัดการพลังงานไฟฟ้า IoT แบบ Full-Stack ด้วย Next.js 15, TypeScript และ PostgreSQL
+> ระบบจัดการพลังงานไฟฟ้า IoT แบบ Full-Stack ด้วย Next.js 15, TypeScript และ PostgreSQL  
+> **สถานะ**: Development Complete ✅ | **อัพเดทล่าสุด**: สิงหาคม 2025
 
 [![Next.js](https://img.shields.io/badge/Next.js-15.4.4-000000?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.1.0-61DAFB?logo=react)](https://reactjs.org/)
@@ -9,6 +10,24 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
 [![SSE](https://img.shields.io/badge/SSE-Real--time-orange?logo=firefox)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
 [![MQTT](https://img.shields.io/badge/MQTT-IoT_Protocol-green?logo=mqtt)](https://mqtt.org/)
+
+## 🆕 อัพเดทล่าสุด (สิงหาคม 2025)
+
+### ✅ Major Updates Completed
+- **🏗️ MQTT Topic Restructure**: `devices/{faculty}/{device}/datas` และ `devices/{faculty}/{device}/prop`
+- **⚡ SSE Real-time Integration**: Server-Sent Events แทน WebSocket สำหรับ Real-time communication
+- **⚡ Status Logic Simplified**: Online/Offline detection ตาม 60-second timeout
+- **🌡️ Environmental Data Cleanup**: เหลือเฉพาะ temperature monitoring
+- **🐍 Python MQTT Simulators**: อุปกรณ์จำลอง 3 ตัวสำหรับทดสอบระบบ
+- **📊 Dashboard Improvements**: Real-time monitoring และ System Check แยกชัดเจน
+- **🔧 Architecture Optimization**: Python = Publisher, Next.js = Subscriber only
+- **⚡ Icon Updates**: ใช้ไอคอน ⚡ สำหรับอุปกรณ์ IoT เพื่อแสดงถึงการใช้พลังงานไฟฟ้า
+- **🔧 TypeScript Compilation**: แก้ไขปัญหา TypeScript และ ESLint errors ทั้งหมด
+
+### 📚 เอกสารใหม่
+- [`📊 PROJECT_STATUS_2025.md`](./docs/PROJECT_STATUS_2025.md) - สถานะโปรเจคปัจจุบัน
+- [`📡 MQTT_TOPICS_GUIDE.md`](./docs/MQTT_TOPICS_GUIDE.md) - คู่มือ Topic structure ใหม่
+- [`📋 docs/README.md`](./docs/README.md) - ดัชนีเอกสารทั้งหมด
 
 ---
 
@@ -40,14 +59,27 @@
 - ✅ **ติดตามอุปกรณ์ IoT** - จัดการและติดตาม Smart Meter และอุปกรณ์วัดพลังงาน
 - ✅ **Dashboard แบบ Real-time** - แสดงข้อมูลการใช้พลังงานแบบเรียลไทม์ด้วย SSE (Server-Sent Events)
 - ✅ **ระบบรักษาความปลอดภัย** - Authentication และ Authorization ระดับ Enterprise
-- ✅ **รองรับ Multi-Faculty** - จัดการข้อมูลแบบแยกตามหน่วยงาน/คณะ
-- ✅ **SSE Integration** - รองรับการรับส่งข้อมูลจากอุปกรณ์ IoT แบบ Real-time ผ่าน Server-Sent Events
+- ✅ **รองรับ Multi-Faculty** - จัดการข้อมูลแบบแยกตามหน่วยงาน/คณะ (6 คณะ)
+- ✅ **SSE Real-time Communication** - Server-Sent Events สำหรับการสื่อสารแบบ Real-time
+- ✅ **MQTT Integration** - รองรับการรับส่งข้อมูลจากอุปกรณ์ IoT แบบ Real-time ผ่าน MQTT Protocol
+- ✅ **Dual Topic Structure** - แยกข้อมูล properties (`/prop`) และ sensor data (`/datas`) เพื่อการจัดการที่มีประสิทธิภาพ
+- ✅ **60-Second Timeout Logic** - ตรวจสอบสถานะอุปกรณ์ Online/Offline ตาม timestamp
 
 ### 🏛️ กรณีการใช้งาน
-- **มหาวิทยาลัย** - จัดการพลังงานไฟฟ้าของหลายคณะ/อาคาร
+- **มหาวิทยาลัย** - จัดการพลังงานไฟฟ้าของหลายคณะ/อาคาร (Engineering, Institution, Liberal Arts, Business Administration, Architecture, Industrial Education)
 - **โรงงานอุตสาหกรรม** - ติดตามการใช้พลังงานของหลายหน่วยผลิต
 - **อาคารสำนักงาน** - จัดการพลังงานของหลายชั้น/ฝ่าย
 - **Smart City** - ระบบจัดการพลังงานในชุมชน
+
+### 🆕 อัพเดทล่าสุด (สิงหาคม 2025)
+- **โครงสร้าง MQTT Topic ใหม่**: `devices/{faculty}/{device}/datas` และ `devices/{faculty}/{device}/prop`
+- **SSE Integration**: Server-Sent Events สำหรับ Real-time communication แทน WebSocket
+- **ระบบ Status แบบ Simplified**: Online/Offline detection ตาม timestamp (60 วินาที)
+- **ข้อมูล Environmental แบบ Simplified**: เหลือเฉพาะ temperature
+- **Python MQTT Devices**: อุปกรณ์จำลองสำหรับทดสอบระบบ (3 simulators)
+- **Dashboard ปรับปรุงใหม่**: Real-time monitoring และ System Check
+- **Icon Enhancement**: ใช้ ⚡ แทน 📱 สำหรับ IoT Devices Management
+- **Build Optimization**: แก้ไข TypeScript compilation errors และ ESLint warnings
 
 ---
 
@@ -71,12 +103,14 @@
 ### 📡 ระบบ Real-time Communication
 - **Server-Sent Events (SSE)** - การสื่อสารแบบ Real-time ผ่าน HTTP streaming
 - **MQTT Integration** - รองรับโปรโตคอล MQTT สำหรับอุปกรณ์ IoT
+- **Dual Topic Architecture** - แยก `/datas` และ `/prop` topics สำหรับประสิทธิภาพ
 - **Multi-device Support** - รองรับการเชื่อมต่อหลายอุปกรณ์พร้อมกัน
 - **Auto-reconnection** - ระบบเชื่อมต่อใหม่อัตโนมัติเมื่อขาดการเชื่อมต่อ
 - **Connection Fallback** - ระบบ Fallback เมื่อเชื่อมต่อผิดพลาด
 - **Heartbeat Monitoring** - ตรวจสอบสถานะการเชื่อมต่อแบบ Real-time
 - **Cross-origin Support** - รองรับการเข้าถึงจากอุปกรณ์ต่างเครือข่าย
 - **Rate Limiting** - จำกัดการเชื่อมต่อต่อ IP เพื่อป้องกัน DoS
+- **60-Second Timeout** - ตรวจสอบสถานะ Online/Offline ตาม timestamp
 
 ### 📊 Dashboard และการแสดงผล
 - **Real-time IoT Dashboard** - แสดงข้อมูลอุปกรณ์แบบเรียลไทม์ผ่าน SSE
@@ -89,19 +123,24 @@
 
 ### 🏭 การจัดการอุปกรณ์ IoT
 - **Device Registration** - ลงทะเบียนอุปกรณ์ Smart Meter
-- **Faculty-based Organization** - จัดกลุ่มอุปกรณ์ตามหน่วยงาน
-- **Real-time Status Monitoring** - ติดตามสถานะ Online/Offline แบบเรียลไทม์
-- **Energy Data Display** - แสดงข้อมูล Voltage, Current, Power, Energy
-- **Temperature Monitoring** - ติดตามอุณหภูมิอุปกรณ์
-- **Frequency Monitoring** - ติดตามความถี่ไฟฟ้า
-- **Location Tracking** - จัดเก็บตำแหน่งติดตั้งอุปกรณ์
+- **Faculty-based Organization** - จัดกลุ่มอุปกรณ์ตาม 6 คณะ (Engineering, Institution, Liberal Arts, Business Administration, Architecture, Industrial Education)
+- **Dual Topic Structure** - แยกข้อมูล Properties (`/prop`) และ Sensor Data (`/datas`)
+- **Real-time Status Monitoring** - ติดตามสถานะ Online/Offline ตาม timestamp (60 วินาที)
+- **Energy Data Display** - แสดงข้อมูล Voltage, Current, Power, Energy, Frequency, Power Factor
+- **Temperature Monitoring** - ติดตามอุณหภูมิอุปกรณ์ (environmental data simplified)
+- **Location Tracking** - จัดเก็บตำแหน่งติดตั้งอุปกรณ์ใน Properties topic
+- **Python Device Simulators** - อุปกรณ์จำลองสำหรับทดสอบระบบ (3 simulators)
+- **⚡ Visual Enhancement** - ใช้ไอคอนฟ้าผ่า (⚡) สำหรับ IoT Devices Management
 
 ### 🔧 System Management
-- **WebSocket Server Control** - ควบคุมและเริ่มต้น WebSocket Server
-- **Service Health Check** - ตรวจสอบสถานะระบบ
+- **SSE Service Control** - ควบคุมและเริ่มต้น Server-Sent Events Service
+- **MQTT Broker Integration** - เชื่อมต่อและจัดการ MQTT Broker (`iot666.ddns.net:1883`)
+- **Service Health Check** - ตรวจสอบสถานะระบบ Database, MQTT, SSE, API
 - **Error Handling** - จัดการข้อผิดพลาดอย่างเหมาะสม
-- **Connection Statistics** - สถิติการเชื่อมต่อและการใช้งาน
+- **Connection Statistics** - สถิติการเชื่อมต่อ SSE และการใช้งาน
 - **Debug Tools** - เครื่องมือ Debug สำหรับพัฒนา
+- **Topic Filtering** - กรองข้อมูล MQTT ตาม Faculty และ Device type
+- **Real-time Broadcasting** - แจกจ่ายข้อมูลแบบ Real-time ผ่าน SSE
 
 ---
 
@@ -127,17 +166,20 @@
   "database": "PostgreSQL 16+",
   "orm": "Raw SQL with pg",
   "authentication": "JWT + bcrypt",
-  "realtime": ["WebSocket", "MQTT"]
+  "realtime": ["Server-Sent Events (SSE)", "MQTT"],
+  "mqtt_broker": "iot666.ddns.net:1883"
 }
 ```
 
 ### 📡 Real-time Technologies
 ```json
 {
-  "websocket": "ws library v8.0+",
+  "sse": "Server-Sent Events HTTP Streaming",
   "mqtt": "mqtt.js v5.0+",
-  "protocols": ["WebSocket", "MQTT"],
-  "features": ["Auto-reconnection", "Ping/Pong", "Multi-client Support"]
+  "broker": "iot666.ddns.net:1883",
+  "protocols": ["SSE", "MQTT", "HTTP"],
+  "topics": ["devices/{faculty}/{device}/datas", "devices/{faculty}/{device}/prop"],
+  "features": ["Auto-reconnection", "Rate Limiting", "Multi-client Support", "Cross-origin", "60s Timeout"]
 }
 ```
 
@@ -157,8 +199,8 @@
 {
   "hosting": "Vercel / Self-hosted",
   "database": "PostgreSQL Cloud / Local",
-  "websocket_port": "8080",
-  "mqtt_broker": "External MQTT Broker",
+  "sse_endpoint": "/api/sse (HTTP Streaming)",
+  "mqtt_broker": "iot666.ddns.net:1883",
   "cdn": "Next.js Built-in"
 }
 ```
@@ -167,13 +209,69 @@
 
 ## 🏗️ สถาปัตยกรรมระบบ
 
+### 🏢 MQTT Topic Architecture (Updated 2025)
+
+```mermaid
+graph LR
+    %% Python Devices
+    PY1[🐍 digital_device_1.py<br/>Engineering Lab] 
+    PY2[🐍 digital_device_2.py<br/>Institution Library]
+    PY3[🐍 analog_device_1.py<br/>Architecture Studio]
+    
+    %% MQTT Topics
+    PY1 -->|Publish| T1[📡 devices/engineering/lab_sensor_01/datas]
+    PY1 -->|Publish| T2[📡 devices/engineering/lab_sensor_01/prop]
+    PY2 -->|Publish| T3[📡 devices/institution/library_meter/datas]
+    PY2 -->|Publish| T4[📡 devices/institution/library_meter/prop]
+    PY3 -->|Publish| T5[📡 devices/architecture/studio_sensor/datas]
+    PY3 -->|Publish| T6[📡 devices/architecture/studio_sensor/prop]
+    
+    %% Next.js Subscription
+    T1 -->|Subscribe| MQTT[🔔 Next.js MQTT Service]
+    T2 -->|Subscribe| MQTT
+    T3 -->|Subscribe| MQTT
+    T4 -->|Subscribe| MQTT
+    T5 -->|Subscribe| MQTT
+    T6 -->|Subscribe| MQTT
+    
+    %% SSE Broadcasting
+    MQTT -->|Broadcast| SSE[⚡ SSE Service]
+    SSE -->|Stream| DASH1[📊 Real-time Dashboard]
+    SSE -->|Stream| DASH2[🔧 System Check Dashboard]
+    
+    classDef python fill:#3776ab,stroke:#2d5aa0,stroke-width:2px,color:#fff
+    classDef topic fill:#ff6b35,stroke:#e55a2b,stroke-width:2px,color:#fff
+    classDef nextjs fill:#000000,stroke:#000000,stroke-width:2px,color:#fff
+    classDef sse fill:#00d4aa,stroke:#00bfa0,stroke-width:2px,color:#fff
+    classDef dashboard fill:#667eea,stroke:#5a6fd8,stroke-width:2px,color:#fff
+    
+    class PY1,PY2,PY3 python
+    class T1,T2,T3,T4,T5,T6 topic
+    class MQTT nextjs
+    class SSE sse
+    class DASH1,DASH2 dashboard
+```
+
+### 📊 Faculty Data Organization
+
+| Faculty | Topic Pattern | Example Device | Status Logic |
+|---------|--------------|----------------|--------------|
+| 🏗️ Engineering | `devices/engineering/{device}/datas` | lab_sensor_01 | Online if data < 60s |
+| 🏛️ Institution | `devices/institution/{device}/datas` | library_meter | Online if data < 60s |
+| 🎨 Liberal Arts | `devices/liberal_arts/{device}/datas` | classroom_a101 | Online if data < 60s |
+| 💼 Business Admin | `devices/business_administration/{device}/datas` | office_b205 | Online if data < 60s |
+| 🏛️ Architecture | `devices/architecture/{device}/datas` | studio_c301 | Online if data < 60s |
+| ⚙️ Industrial Education | `devices/industrial_education/{device}/datas` | workshop_d101 | Online if data < 60s |
+
+### 🔄 Real-time System Architecture
+
 ```mermaid
 graph TB
     %% IoT Device Layer
-    IoT[🏭 IoT Devices<br/>Smart Meters] --> MQTT[📡 MQTT Broker<br/>iot666.ddns.net:1883]
+    IoT[🏭 Python MQTT Devices<br/>Smart Meters & Sensors] --> MQTT[📡 MQTT Broker<br/>iot666.ddns.net:1883<br/>Dual Topics: /datas & /prop]
     
     %% Data Processing Layer  
-    MQTT --> SSE_SERVICE[⚡ SSE Service<br/>Server-Sent Events<br/>Real-time Stream]
+    MQTT --> SSE_SERVICE[⚡ SSE Service<br/>Server-Sent Events<br/>Real-time Stream<br/>60s Timeout Logic]
     SSE_SERVICE --> FRONTEND[🌐 Next.js Frontend<br/>React 19 + TypeScript<br/>Port 3000]
     
     %% Client Layer
@@ -195,8 +293,8 @@ graph TB
     %% Application Modules
     API --> USERS[👥 User Dashboard<br/>Role-based Interface<br/>Admin/Manager/User]
     API --> ADMIN[⚙️ Admin Panel<br/>System Management<br/>User & Device Control] 
-    API --> DEVICES[🏭 Device Monitor<br/>Real-time Status<br/>Energy Analytics]
-    API --> ENERGY[⚡ Energy Analytics<br/>Live Data Visualization<br/>Faculty-based Reports]
+    API --> DEVICES[🏭 Device Monitor<br/>Real-time Status<br/>Energy Analytics<br/>Faculty-based View]
+    API --> ENERGY[⚡ Energy Analytics<br/>Live Data Visualization<br/>Temperature Monitoring<br/>Online/Offline Detection]
     
     %% Real-time Data Flow
     SSE_SERVICE -.->|📊 Live Updates| USERS
@@ -205,7 +303,7 @@ graph TB
     SSE_SERVICE -.->|📈 Real-time Stats| ADMIN
     
     %% System Health Monitoring
-    API --> HEALTH[🏥 System Health<br/>Connection Monitoring<br/>Performance Metrics]
+    API --> HEALTH[🏥 System Health<br/>Connection Monitoring<br/>Performance Metrics<br/>MQTT Status Check]
     
     %% Rate Limiting & Security
     SSE_SERVICE --> RATE[🛡️ Rate Limiting<br/>Connection Limits<br/>Per IP Protection]
@@ -399,8 +497,8 @@ graph TD
 - **State Management** - Zustand สำหรับ Global State
 - **Database Layer** - Raw SQL Queries พร้อม Connection Pooling
 - **Authentication Flow** - JWT Token + Cookie Session
-- **Real-time Architecture** - WebSocket + MQTT Integration
-- **Microservices Pattern** - แยก WebSocket Server เป็น Service อิสระ
+- **Real-time Architecture** - SSE + MQTT Integration
+- **Event-driven Pattern** - Server-Sent Events สำหรับ Real-time Communication
 
 ---
 
@@ -444,13 +542,15 @@ NEXTAUTH_URL="http://localhost:3000"
 NODE_ENV="development"
 NEXT_PUBLIC_API_URL="http://localhost:3000"
 
-# WebSocket & Real-time Configuration
-NEXT_PUBLIC_WS_URL="ws://localhost:8080"
-WS_PORT="8080"
-WS_HOST="0.0.0.0"
+# SSE & Real-time Configuration
+NEXT_PUBLIC_SSE_URL="http://localhost:3000/api/sse"
+SSE_MAX_CONNECTIONS_PER_IP="10"
+SSE_HEARTBEAT_INTERVAL="30000"
 
-# MQTT Configuration (Optional)
-MQTT_BROKER_URL="mqtt://your-mqtt-broker:1883"
+# MQTT Configuration 
+MQTT_BROKER_URL="mqtt://iot666.ddns.net:1883"
+MQTT_USERNAME="your-mqtt-username"
+MQTT_PASSWORD="your-mqtt-password"
 ```
 
 #### 4. Database Setup
@@ -467,7 +567,7 @@ npm run db:fresh
 
 #### 5. Start Development Server
 ```bash
-# Start Next.js และ WebSocket Server
+# Start Next.js และ SSE Service
 npm run dev
 ```
 
@@ -481,8 +581,8 @@ npm run dev
 ipconfig  # Windows
 ifconfig  # macOS/Linux
 
-# อัปเดต NEXT_PUBLIC_WS_URL ใน .env
-NEXT_PUBLIC_WS_URL="ws://YOUR_IP_ADDRESS:8080"
+# อัปเดต SSE URL ใน .env
+NEXT_PUBLIC_SSE_URL="http://YOUR_IP_ADDRESS:3000/api/sse"
 
 # อัปเดต next.config.ts สำหรับ Cross-origin
 # ดูใน next.config.ts -> allowedDevOrigins
@@ -514,10 +614,11 @@ NEXT_PUBLIC_WS_URL="ws://YOUR_IP_ADDRESS:8080"
 
 #### 3. Real-time Dashboard
 - เข้าใช้งานที่ `/realtime`
-- ดูข้อมูลอุปกรณ์ IoT แบบเรียลไทม์
+- ดูข้อมูลอุปกรณ์ IoT แบบเรียลไทม์ผ่าน SSE (Server-Sent Events)
 - กรองข้อมูลตามคณะ/หน่วยงาน
-- สถานะการเชื่อมต่อ WebSocket
+- สถานะการเชื่อมต่อ SSE แบบ Real-time
 - ข้อมูลการใช้พลังงาน (Voltage, Current, Power, Energy)
+- ข้อมูล MQTT Topics จากอุปกรณ์ IoT ต่างๆ
 
 #### 4. User Management (Admin เท่านั้น)
 - เพิ่มผู้ใช้ใหม่ผ่าน Modal
@@ -525,11 +626,12 @@ NEXT_PUBLIC_WS_URL="ws://YOUR_IP_ADDRESS:8080"
 - ลบผู้ใช้ (ไม่สามารถลบตัวเองได้)
 - ดูสถิติการใช้งาน
 
-#### 5. WebSocket Monitoring
-- ตรวจสอบสถานะการเชื่อมต่อ
-- ดูจำนวน connections ที่ active
-- ติดตาม ping/pong responses
+#### 5. SSE & System Monitoring
+- ตรวจสอบสถานะ Database, MQTT, SSE, API
+- ดูจำนวน SSE connections ที่ active
+- ติดตาม MQTT message throughput
 - จัดการการเชื่อมต่อใหม่อัตโนมัติ
+- ทดสอบ API endpoints แบบ Interactive
 
 ---
 
@@ -564,47 +666,54 @@ curl -X GET http://localhost:3000/api/auth/me \
 
 ## 📡 ระบบ Real-time
 
-### 🌐 WebSocket Server
+### ⚡ SSE (Server-Sent Events) Configuration
 ```javascript
-// WebSocket Server Configuration
+// SSE Service Configuration
 {
-  "port": 8080,
-  "host": "0.0.0.0",
-  "maxPayload": "16MB",
-  "backlog": 100,
-  "clientTracking": true
+  "endpoint": "/api/sse",
+  "protocol": "HTTP Streaming",
+  "format": "text/event-stream",
+  "maxConnections": 10,
+  "heartbeatInterval": "30s",
+  "reconnection": "auto",
+  "crossOrigin": true
 }
 ```
 
-### 🔄 Connection Flow
+### 🔄 SSE Connection Flow
 ```
-Client → WebSocket Connection → Authentication → MQTT Integration → Real-time Data
+Client → HTTP GET /api/sse → EventSource Connection → MQTT Integration → Real-time Data Stream
 ```
 
 ### 📊 Real-time Features
-- **Live Energy Data** - ข้อมูลการใช้พลังงานแบบเรียลไทม์
-- **Device Status** - สถานะอุปกรณ์ Online/Offline
-- **Connection Monitoring** - ติดตามจำนวนการเชื่อมต่อ
+- **Live MQTT Data** - ข้อมูล IoT จาก MQTT Broker แบบเรียลไทม์
+- **Device Status** - สถานะอุปกรณ์ Online/Offline ผ่าน SSE
+- **Connection Monitoring** - ติดตามจำนวน SSE connections
 - **Auto-reconnection** - เชื่อมต่อใหม่อัตโนมัติเมื่อขาดการเชื่อมต่อ
 - **Multi-device Support** - รองรับหลายอุปกรณ์พร้อมกัน
 - **Cross-platform** - ทำงานได้บน PC, Tablet, Mobile
+- **Rate Limiting** - จำกัดการเชื่อมต่อต่อ IP
 
-### 🔧 WebSocket API
+### 🔧 SSE API Usage
 ```javascript
-// เชื่อมต่อ WebSocket
-const ws = new WebSocket('ws://localhost:8080');
+// เชื่อมต่อ SSE
+const eventSource = new EventSource('/api/sse');
 
 // รับข้อมูลแบบ Real-time
-ws.onmessage = (event) => {
+eventSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
-  // จัดการข้อมูลอุปกรณ์ IoT
+  if (data.type === 'data' && data.data.topic) {
+    // จัดการข้อมูลจาก MQTT
+    console.log('MQTT Topic:', data.data.topic);
+    console.log('Data:', data.data.data);
+  }
 };
 
-// ส่ง Ping เพื่อตรวจสอบการเชื่อมต่อ
-ws.send(JSON.stringify({
-  type: 'ping',
-  timestamp: new Date().toISOString()
-}));
+// จัดการ errors
+eventSource.onerror = (error) => {
+  console.error('SSE Error:', error);
+  // ระบบจะ reconnect อัตโนมัติ
+};
 ```
 
 ### 📱 MQTT Integration
@@ -618,6 +727,15 @@ const supportedTopics = [
   'devices/architecture/+',
   'devices/industrial_education/+'
 ];
+
+// MQTT Broker Configuration
+const mqttConfig = {
+  broker: 'iot666.ddns.net',
+  port: 1883,
+  protocol: 'mqtt',
+  keepalive: 60,
+  clean: true
+};
 ```
 
 ---
@@ -657,8 +775,8 @@ const supportedTopics = [
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api/start-services` | เริ่มต้น WebSocket Server | ✅ |
-| GET | `/api/websocket` | ข้อมูล WebSocket Status | ✅ |
+| GET | `/api/start-services` | เริ่มต้น SSE และ MQTT Services | ✅ |
+| GET | `/api/sse-status` | สถานะ SSE Service | ✅ |
 | GET | `/api/mqtt-status` | สถานะ MQTT Broker | ✅ |
 | POST | `/api/test-broadcast` | ทดสอบส่งข้อมูล Real-time | ✅ Admin |
 
@@ -670,6 +788,30 @@ const supportedTopics = [
 | GET | `/api/admin/login-stats` | สถิติการ Login | ✅ Admin |
 | GET | `/api/profile` | ดูข้อมูล Profile | ✅ |
 | PUT | `/api/profile` | แก้ไข Profile | ✅ |
+
+### 📚 API Documentation
+
+#### 🔗 Swagger UI
+- **URL**: `/swagger`
+- **Interactive API Testing**: ✅
+- **Authentication**: Bearer Token Support
+- **Try It Out**: Test APIs directly from browser
+
+```bash
+# เข้าถึง Swagger UI
+http://localhost:3000/swagger
+
+# Swagger JSON Spec
+http://localhost:3000/api/swagger
+```
+
+#### 📋 Features
+- **OpenAPI 3.0 Specification**
+- **Interactive API Testing**
+- **Authentication Integration** (JWT Bearer Token)
+- **Request/Response Examples**
+- **Schema Validation**
+- **Try It Out functionality**
 
 ### 🔑 API Authentication
 ทุก Protected API ต้องส่ง Authorization Header:
@@ -759,13 +901,45 @@ iot-electric-energy/
 
 | Script | Command | Description |
 |--------|---------|-------------|
-| **Development** | `npm run dev` | เริ่ม development server + WebSocket |
+| **Development** | `npm run dev` | เริ่ม development server + SSE |
 | **Build** | `npm run build` | Build production |
 | **Start** | `npm run start` | เริ่ม production server |
 | **Lint** | `npm run lint` | ตรวจสอบ code style |
 | **Database** | `npm run db:check` | ตรวจสอบ database connection |
 | **Reset DB** | `npm run db:fresh` | รีเซ็ต database ใหม่ |
 | **List Users** | `npm run db:list-users` | แสดงรายการผู้ใช้ |
+
+### 🐍 Python MQTT Device Testing
+
+#### สำหรับทดสอบระบบ MQTT Real-time
+```bash
+# 1. เริ่ม Python MQTT devices
+cd mqtt_test_devices
+
+# Engineering Lab Device
+python digital_device_1.py
+
+# Institution Library Device  
+python digital_device_2.py
+
+# Architecture Studio Device
+python analog_device_1.py
+```
+
+#### Topic ที่ถูกส่งโดยอุปกรณ์:
+```bash
+# Engineering
+devices/engineering/lab_sensor_01/datas
+devices/engineering/lab_sensor_01/prop
+
+# Institution
+devices/institution/library_meter/datas
+devices/institution/library_meter/prop
+
+# Architecture
+devices/architecture/studio_sensor/datas
+devices/architecture/studio_sensor/prop
+```
 
 ### ✅ Manual Testing Checklist
 
@@ -777,14 +951,21 @@ iot-electric-energy/
 - [ ] Refresh หน้าหลัง login (ต้องยังคง login อยู่)
 - [ ] เข้า `/dashboard` โดยไม่ login (ต้อง redirect ไป login)
 
-#### Real-time System Testing
-- [ ] เข้า `/realtime` และดู WebSocket status
-- [ ] ตรวจสอบการเชื่อมต่อ WebSocket (ต้องแสดง "connected")
-- [ ] ทดสอบจากอุปกรณ์อื่น (tablet/mobile)
-- [ ] ตรวจสอบ auto-reconnection เมื่อขาดการเชื่อมต่อ
-- [ ] ดูข้อมูล Real-time ของอุปกรณ์ IoT
-- [ ] กรองข้อมูลตามคณะ/หน่วยงาน
-- [ ] ตรวจสอบ ping/pong responses
+#### Real-time MQTT & SSE Testing
+- [ ] เริ่ม Python MQTT devices
+- [ ] เข้า `/realtime` และดู SSE status (ต้องแสดง "Connected")
+- [ ] ตรวจสอบข้อมูลจาก Python devices แสดงใน dashboard
+- [ ] ทดสอบ Online/Offline status (หยุด Python device แล้วรอ 60 วินาที)
+- [ ] ตรวจสอบ auto-reconnection เมื่อขาดการเชื่อมต่อ SSE
+- [ ] ดูข้อมูล Real-time ตาม faculty (Engineering, Institution, Architecture)
+- [ ] ตรวจสอบ `/dashboard` สำหรับ System Check
+- [ ] ดู MQTT message details และ topic filtering
+
+#### MQTT Topic Structure Testing
+- [ ] ตรวจสอบ `/datas` topics แสดงในหน้า Real-time
+- [ ] ตรวจสอบ `/prop` topics แสดงในหน้า System Check
+- [ ] กรองข้อมูลตามคณะ (Engineering, Institution, Architecture)
+- [ ] ตรวจสอบ timestamp และ status logic (online < 60s, offline > 60s)
 
 #### User Management Testing
 - [ ] แสดงรายการผู้ใช้ทั้งหมด (Admin)
