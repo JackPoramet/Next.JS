@@ -11,6 +11,7 @@ interface DashboardLayoutProps {
   activeMenu: string;
   onMenuChange: (menuId: string) => void;
   onLogout: () => void;
+  onDeviceApproved?: () => void;
 }
 
 export default function DashboardLayout({
@@ -19,7 +20,8 @@ export default function DashboardLayout({
   userRole,
   activeMenu,
   onMenuChange,
-  onLogout
+  onLogout,
+  onDeviceApproved
 }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -35,8 +37,10 @@ export default function DashboardLayout({
     <div className="min-h-screen bg-gray-50 transition-colors">
       {/* Navbar */}
       <Navbar 
-        userEmail={userEmail} 
-        onToggleSidebar={toggleSidebar} 
+        userEmail={userEmail}
+        userRole={userRole}
+        onToggleSidebar={toggleSidebar}
+        onDeviceApproved={onDeviceApproved}
       />
 
       {/* Sidebar */}

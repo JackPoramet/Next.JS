@@ -1,11 +1,10 @@
 -- ================================
--- DEVICES TABLES - 4 TABLE ARCHITECTURE
+-- DEVICES TABLES - 3 TABLE ARCHITECTURE
 -- ================================
 -- Architecture Overview:
 -- 1. meter_prop: ข้อมูลมิเตอร์ (ข้อมูลทางเทคนิคและสเปค)
 -- 2. devices_prop: ข้อมูลอุปกรณ์ที่ครอบคลุม (อุปกรณ์แต่ละตัว)
 -- 3. devices_data: ข้อมูลปัจจุบันแบบ real-time (ข้อมูลล่าสุด)
--- 4. devices_history: ข้อมูลประวัติศาสตร์ (เก็บข้อมูลย้อนหลัง)
 
 -- ========================================
 -- CLEAN UP EXISTING OBJECTS (IF EXISTS)
@@ -26,7 +25,6 @@ DROP FUNCTION IF EXISTS create_initial_device_data() CASCADE;
 DROP FUNCTION IF EXISTS archive_device_data() CASCADE;
 
 -- Drop tables in correct order (child tables first)
-DROP TABLE IF EXISTS devices_history CASCADE;
 DROP TABLE IF EXISTS devices_data CASCADE;
 DROP TABLE IF EXISTS devices_prop CASCADE;
 DROP TABLE IF EXISTS meter_prop CASCADE;
@@ -36,12 +34,14 @@ DROP TYPE IF EXISTS device_status_enum CASCADE;
 DROP TYPE IF EXISTS network_status_enum CASCADE;
 DROP TYPE IF EXISTS meter_type_enum CASCADE;
 DROP TYPE IF EXISTS connection_type_enum CASCADE;
+DROP TYPE IF EXISTS power_phase_enum CASCADE;
 
 -- สร้าง ENUM types สำหรับข้อมูลที่มีค่าจำกัด
 CREATE TYPE device_status_enum AS ENUM ('active', 'inactive', 'maintenance', 'error');
 CREATE TYPE network_status_enum AS ENUM ('online', 'offline', 'error');
 CREATE TYPE meter_type_enum AS ENUM ('digital', 'analog');
 CREATE TYPE connection_type_enum AS ENUM ('wifi', 'ethernet');
+CREATE TYPE power_phase_enum AS ENUM ('single', 'three'); -- เพิ่มประเภทระบบไฟฟ้า (1 เฟส, 3 เฟส)
 
 -- ================================================================
 -- TABLE 1: METER_PROP (Meter Technical Specifications)
@@ -57,6 +57,7 @@ CREATE TABLE meter_prop (
     model_name VARCHAR(255) NOT NULL, -- ชื่อรุ่น เช่น 'Smart Meter 2000'
     manufacturer VARCHAR(100) NOT NULL, -- ผู้ผลิต เช่น 'PowerTech', 'Schneider'
     meter_type meter_type_enum NOT NULL DEFAULT 'digital',
+    power_phase power_phase_enum NOT NULL DEFAULT 'single', -- ระบบไฟฟ้า (1 เฟส หรือ 3 เฟส)
     
     -- Electrical Specifications (สเปคทางไฟฟ้า)
     rated_voltage DECIMAL(8,2) CHECK (rated_voltage > 0), -- แรงดันที่กำหนด (V)
@@ -150,15 +151,28 @@ CREATE TABLE devices_data (
     signal_strength INTEGER CHECK (signal_strength BETWEEN -120 AND 0), -- dBm
     
     -- Current Electrical Readings (ค่าไฟฟ้าปัจจุบัน)
-    voltage DECIMAL(8,2) CHECK (voltage >= 0), -- แรงดันไฟฟ้า (V)
-    current_amperage DECIMAL(8,2) CHECK (current_amperage >= 0), -- กระแสไฟฟ้า (A)
-    power_factor DECIMAL(4,3) CHECK (power_factor BETWEEN -1 AND 1), -- ตัวประกอบกำลัง
+    voltage DECIMAL(8,2) CHECK (voltage >= 0), -- แรงดันไฟฟ้าเฟส A หรือค่าเฉลี่ย (V)
+    current_amperage DECIMAL(8,2) CHECK (current_amperage >= 0), -- กระแสไฟฟ้าเฟส A หรือค่าเฉลี่ย (A)
+    power_factor DECIMAL(4,3) CHECK (power_factor BETWEEN -1 AND 1), -- ตัวประกอบกำลังเฟส A หรือค่าเฉลี่ย
     frequency DECIMAL(5,2) CHECK (frequency BETWEEN 40 AND 70), -- ความถี่ (Hz)
     
+    -- 3-Phase Specific Readings (สำหรับระบบ 3 เฟสเท่านั้น)
+    voltage_phase_b DECIMAL(8,2) CHECK (voltage_phase_b IS NULL OR voltage_phase_b >= 0), -- แรงดันไฟฟ้าเฟส B (V)
+    voltage_phase_c DECIMAL(8,2) CHECK (voltage_phase_c IS NULL OR voltage_phase_c >= 0), -- แรงดันไฟฟ้าเฟส C (V)
+    current_phase_b DECIMAL(8,2) CHECK (current_phase_b IS NULL OR current_phase_b >= 0), -- กระแสไฟฟ้าเฟส B (A)
+    current_phase_c DECIMAL(8,2) CHECK (current_phase_c IS NULL OR current_phase_c >= 0), -- กระแสไฟฟ้าเฟส C (A)
+    power_factor_phase_b DECIMAL(4,3) CHECK (power_factor_phase_b IS NULL OR power_factor_phase_b BETWEEN -1 AND 1), -- ตัวประกอบกำลังเฟส B
+    power_factor_phase_c DECIMAL(4,3) CHECK (power_factor_phase_c IS NULL OR power_factor_phase_c BETWEEN -1 AND 1), -- ตัวประกอบกำลังเฟส C
+    
     -- Power Measurements (การวัดกำลัง)
-    active_power DECIMAL(12,2) CHECK (active_power >= 0), -- กำลังจริง (W)
-    reactive_power DECIMAL(12,2), -- กำลังรีแอกทีฟ (VAR)
-    apparent_power DECIMAL(12,2) CHECK (apparent_power >= 0), -- กำลังปรากฏ (VA)
+    active_power DECIMAL(12,2) CHECK (active_power >= 0), -- กำลังจริงรวม (W)
+    reactive_power DECIMAL(12,2), -- กำลังรีแอกทีฟรวม (VAR)
+    apparent_power DECIMAL(12,2) CHECK (apparent_power >= 0), -- กำลังปรากฏรวม (VA)
+    
+    -- 3-Phase Power Measurements
+    active_power_phase_a DECIMAL(12,2) CHECK (active_power_phase_a IS NULL OR active_power_phase_a >= 0), -- กำลังจริงเฟส A (W)
+    active_power_phase_b DECIMAL(12,2) CHECK (active_power_phase_b IS NULL OR active_power_phase_b >= 0), -- กำลังจริงเฟส B (W)
+    active_power_phase_c DECIMAL(12,2) CHECK (active_power_phase_c IS NULL OR active_power_phase_c >= 0), -- กำลังจริงเฟส C (W)
     
     -- Environmental Monitoring (การตรวจสอบสิ่งแวดล้อม)
     device_temperature DECIMAL(5,2) CHECK (device_temperature BETWEEN -40 AND 85), -- อุณหภูมิอุปกรณ์ (°C)
@@ -188,58 +202,8 @@ CREATE TABLE devices_data (
         ON UPDATE CASCADE
 );
 
--- ================================================================
--- TABLE 4: DEVICES_HISTORY (Historical Time-Series Data)
--- ================================================================
--- วัตถุประสงค์: เก็บข้อมูลประวัติศาสตร์สำหรับการวิเคราะห์แนวโน้มและรายงาน
--- เก็บข้อมูลแบบ Time-Series สำหรับ Analytics และ Reporting
-
-CREATE TABLE devices_history (
-    -- Primary Key (ใช้ BIGSERIAL เพื่อรองรับข้อมูลจำนวนมาก)
-    id BIGSERIAL PRIMARY KEY,
-    
-    -- Foreign Key to devices_prop
-    device_id VARCHAR(100) NOT NULL,
-    
-    -- Snapshot Timestamp (เวลาที่บันทึกข้อมูล)
-    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Electrical Readings Snapshot (ภาพรวมค่าไฟฟ้า ณ เวลานั้น)
-    voltage DECIMAL(8,2),
-    current_amperage DECIMAL(8,2),
-    power_factor DECIMAL(4,3),
-    frequency DECIMAL(5,2),
-    
-    -- Power Snapshot (ภาพรวมกำลัง ณ เวลานั้น)
-    active_power DECIMAL(12,2),
-    reactive_power DECIMAL(12,2),
-    apparent_power DECIMAL(12,2),
-    
-    -- Energy Accumulation (การสะสมพลังงาน ณ เวลานั้น)
-    total_energy_import DECIMAL(15,4),
-    total_energy_export DECIMAL(15,4),
-    
-    -- Environmental Snapshot (สภาพแวดล้อม ณ เวลานั้น)
-    device_temperature DECIMAL(5,2),
-    
-    -- Operational Status (สถานะการทำงาน ณ เวลานั้น)
-    network_status network_status_enum,
-    connection_quality INTEGER,
-    
-    -- Foreign Key Constraint
-    CONSTRAINT fk_devices_history_device_id 
-        FOREIGN KEY (device_id) 
-        REFERENCES devices_prop(device_id) 
-        ON DELETE CASCADE
-);
-
--- สร้าง Partitioning สำหรับข้อมูลประวัติตามเดือน (เพื่อประสิทธิภาพ)
--- NOTE: ต้องสร้าง partitions เพิ่มเติมตามต้องการ
--- CREATE TABLE devices_history_y2025m01 PARTITION OF devices_history
--- FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-
 -- ================================
--- ความแตกต่างระหว่างตารางทั้ง 4 ตาราง
+-- ความแตกต่างระหว่างตารางทั้ง 3 ตาราง
 -- ================================
 
 /*
@@ -328,14 +292,6 @@ CREATE INDEX idx_devices_data_updated_at ON devices_data(updated_at DESC);
 CREATE INDEX idx_devices_data_active_power ON devices_data(active_power);
 CREATE INDEX idx_devices_data_device_temp ON devices_data(device_temperature);
 CREATE INDEX idx_devices_data_voltage_current ON devices_data(voltage, current_amperage);
-
--- Indexes for devices_history table (Time-Series Data)
--- INDEX สำหรับ devices_history
-CREATE INDEX idx_devices_history_device_time ON devices_history(device_id, recorded_at DESC);
-CREATE INDEX idx_devices_history_recorded_at ON devices_history(recorded_at DESC);
--- สร้าง INDEX ด้วย IMMUTABLE functions
-CREATE INDEX idx_devices_history_device_daily ON devices_history(device_id, immutable_date_trunc_day(recorded_at));
-CREATE INDEX idx_devices_history_device_hourly ON devices_history(device_id, immutable_date_trunc_hour(recorded_at));
 
 -- ================================
 -- UTILITY FUNCTIONS (CONTINUED)
@@ -561,6 +517,13 @@ BEGIN
     RETURN deleted_count;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ================================
+-- SAMPLE DATA FOR TESTING
+-- ================================
+
+-- ข้อมูลตัวอย่างถูกย้ายไปยังไฟล์ seeds
+-- See: ./seeds/meter_models.sql
 
 -- ================================
 -- ENHANCED COMMENTS & DOCUMENTATION

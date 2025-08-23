@@ -26,7 +26,7 @@ DIGITAL_DEVICE_1 = {
     "topic_prop": "devices/engineering/ENG_SM_LAB_01/prop",
     "update_interval": 5,  # seconds
     "data_ranges": {
-        "voltage": (215.0, 245.0),
+        "voltage": (200.0, 240.0),  # Phase voltage (line-to-neutral)
         "current": (10.0, 50.0),
         "power_factor": (0.85, 0.98),
         "frequency": (49.5, 50.5),
@@ -47,7 +47,7 @@ DIGITAL_DEVICE_2 = {
     "topic_prop": "devices/institution/LIB_PM_MAIN_01/prop",
     "update_interval": 3,  # seconds
     "data_ranges": {
-        "voltage": (220.0, 240.0),
+        "voltage": (200.0, 240.0),  # Phase voltage (line-to-neutral)
         "current": (15.0, 80.0),
         "power_factor": (0.80, 0.95),
         "frequency": (49.8, 50.2),
@@ -88,14 +88,16 @@ SIMULATION_CONFIG = {
 }
 
 # ================================
-# ALERT THRESHOLDS
+# ALERT THRESHOLDS (3-Phase System)
 # ================================
 ALERT_THRESHOLDS = {
-    "voltage_min": 200.0,
-    "voltage_max": 250.0,
+    "voltage_min": 190.0,  # Phase voltage minimum
+    "voltage_max": 250.0,  # Phase voltage maximum
     "current_max": 100.0,
     "power_factor_min": 0.7,
     "temperature_max": 50.0,
     "frequency_min": 49.0,
-    "frequency_max": 51.0
+    "frequency_max": 51.0,
+    "voltage_unbalance_max": 3.0,  # % unbalance between phases
+    "current_unbalance_max": 5.0   # % unbalance between phases
 }

@@ -29,17 +29,18 @@ class PowerMonitorDevice:
         self.load_profile = []
         self.alert_count = 0
         
-        # Base values for more realistic variation
+        # Base values for more realistic variation (3-phase system)
         self.base_values = {
-            "voltage": 235.0,
+            "voltage": 220.0,  # Phase voltage (line-to-neutral, 380V/√3)
             "current": 45.0,
             "power_factor": 0.88
         }
         
-        print(f"📊 Initializing {self.config['name']}")
+        print(f"📊 Initializing {self.config['name']} (3-Phase System)")
         print(f"📍 Location: {self.config['building']}, {self.config['room']}")
         print(f"🏷️  Device ID: {self.config['device_id']}")
         print(f"📡 MQTT Topics: {self.config['topic_base']}/{{prop|datas}}")
+        print(f"⚡ Power Type: 3-Phase")
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -66,8 +67,9 @@ class PowerMonitorDevice:
             "room": self.config["room"],
             "device_type": "power_monitor",
             "meter_type": "digital",
+            "power_phase": "three",  # เพิ่มข้อมูลระบบ 3 เฟส
             "manufacturer": "Schneider Electric",
-            "model": "PM-5560",
+            "model": "PM-5560-3P",  # รุ่น 3 เฟส
             "firmware_version": "2.1.4",
             "installation_date": "2024-02-20",
             "data_collection_interval": self.config["update_interval"],
@@ -122,23 +124,70 @@ class PowerMonitorDevice:
         freq_range = self.config["data_ranges"]["frequency"]
         temp_range = self.config["data_ranges"]["temperature"]
         
-        # สร้างข้อมูลไฟฟ้า
-        voltage = self.base_values["voltage"] * (1 + noise * 0.02) * seasonal_factor
-        voltage = max(voltage_range[0], min(voltage_range[1], voltage))
+        # สร้างข้อมูลไฟฟ้าสำหรับ 3 เฟส
+        # Phase A (อ้างอิง)
+        voltage_a = self.base_values["voltage"] * (1 + noise * 0.02) * seasonal_factor
+        voltage_a = max(voltage_range[0], min(voltage_range[1], voltage_a))
         
-        current = self.base_values["current"] * usage_factor * (1 + noise)
-        current = max(current_range[0], min(current_range[1], current))
+        current_a = self.base_values["current"] * usage_factor * (1 + noise)
+        current_a = max(current_range[0], min(current_range[1], current_a))
         
-        power_factor = self.base_values["power_factor"] * (1 + noise * 0.05)
-        power_factor = max(pf_range[0], min(pf_range[1], power_factor))
+        power_factor_a = self.base_values["power_factor"] * (1 + noise * 0.05)
+        power_factor_a = max(pf_range[0], min(pf_range[1], power_factor_a))
+        
+        # Phase B (เลื่อนเฟส 120 องศา + variation)
+        phase_b_variation = random.uniform(0.95, 1.05)
+        voltage_b = voltage_a * phase_b_variation * (1 + noise * 0.5)
+        voltage_b = max(voltage_range[0], min(voltage_range[1], voltage_b))
+        
+        current_b = current_a * phase_b_variation * (1 + noise * 0.3)
+        current_b = max(current_range[0], min(current_range[1], current_b))
+        
+        power_factor_b = power_factor_a * (1 + noise * 0.1)
+        power_factor_b = max(pf_range[0], min(pf_range[1], power_factor_b))
+        
+        # Phase C (เลื่อนเฟส 240 องศา + variation)
+        phase_c_variation = random.uniform(0.95, 1.05)
+        voltage_c = voltage_a * phase_c_variation * (1 + noise * 0.5)
+        voltage_c = max(voltage_range[0], min(voltage_range[1], voltage_c))
+        
+        current_c = current_a * phase_c_variation * (1 + noise * 0.3)
+        current_c = max(current_range[0], min(current_range[1], current_c))
+        
+        power_factor_c = power_factor_a * (1 + noise * 0.1)
+        power_factor_c = max(pf_range[0], min(pf_range[1], power_factor_c))
         
         frequency = random.uniform(freq_range[0], freq_range[1])
         temperature = random.uniform(temp_range[0], temp_range[1])
         
-        # คำนวณค่า power ต่างๆ
-        active_power = voltage * current * power_factor
-        reactive_power = voltage * current * math.sqrt(1 - power_factor**2)
-        apparent_power = voltage * current
+        # คำนวณ power สำหรับแต่ละเฟส
+        active_power_a = voltage_a * current_a * power_factor_a
+        reactive_power_a = voltage_a * current_a * math.sqrt(1 - power_factor_a**2)
+        apparent_power_a = voltage_a * current_a
+        
+        active_power_b = voltage_b * current_b * power_factor_b
+        reactive_power_b = voltage_b * current_b * math.sqrt(1 - power_factor_b**2)
+        apparent_power_b = voltage_b * current_b
+        
+        active_power_c = voltage_c * current_c * power_factor_c
+        reactive_power_c = voltage_c * current_c * math.sqrt(1 - power_factor_c**2)
+        apparent_power_c = voltage_c * current_c
+        
+        # รวมพลังงานทั้ง 3 เฟส
+        total_active_power = active_power_a + active_power_b + active_power_c
+        total_reactive_power = reactive_power_a + reactive_power_b + reactive_power_c
+        total_apparent_power = apparent_power_a + apparent_power_b + apparent_power_c
+        
+        # คำนวณ power factor รวม
+        total_power_factor = total_active_power / total_apparent_power if total_apparent_power > 0 else 0
+        
+        # ใช้ค่าเฉลี่ยสำหรับ main readings
+        voltage = (voltage_a + voltage_b + voltage_c) / 3
+        current = (current_a + current_b + current_c) / 3
+        power_factor = total_power_factor
+        active_power = total_active_power
+        reactive_power = total_reactive_power
+        apparent_power = total_apparent_power
         
         # ติดตาม peak demand
         if active_power > self.peak_demand:
@@ -184,7 +233,27 @@ class PowerMonitorDevice:
                 "frequency": round(frequency, 2),
                 "total_energy": round(self.total_energy, 3),
                 "peak_demand": round(self.peak_demand, 2),
-                "daily_peak": round(self.daily_peak, 2)
+                "daily_peak": round(self.daily_peak, 2),
+                
+                # 3-Phase specific data
+                "voltage_phase_a": round(voltage_a, 2),
+                "voltage_phase_b": round(voltage_b, 2),
+                "voltage_phase_c": round(voltage_c, 2),
+                "current_phase_a": round(current_a, 2),
+                "current_phase_b": round(current_b, 2),
+                "current_phase_c": round(current_c, 2),
+                "power_factor_phase_a": round(power_factor_a, 3),
+                "power_factor_phase_b": round(power_factor_b, 3),
+                "power_factor_phase_c": round(power_factor_c, 3),
+                "active_power_phase_a": round(active_power_a, 2),
+                "active_power_phase_b": round(active_power_b, 2),
+                "active_power_phase_c": round(active_power_c, 2),
+                "reactive_power_phase_a": round(reactive_power_a, 2),
+                "reactive_power_phase_b": round(reactive_power_b, 2),
+                "reactive_power_phase_c": round(reactive_power_c, 2),
+                "apparent_power_phase_a": round(apparent_power_a, 2),
+                "apparent_power_phase_b": round(apparent_power_b, 2),
+                "apparent_power_phase_c": round(apparent_power_c, 2)
             },
             "power_quality": {
                 "thd_voltage": round(thd_voltage, 2),

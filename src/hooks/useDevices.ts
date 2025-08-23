@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Device, DevicesStats, deviceAPI } from '@/lib/deviceAPI';
+import { DeviceInfo, DevicesStats, deviceAPI } from '@/lib/deviceAPI';
 
 export function useDevices() {
-  const [devices, setDevices] = useState<Device[]>([]);
+  const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [stats, setStats] = useState<DevicesStats>({
     totalDevices: 0,
     activeDevices: 0,
-    digitalMeters: 0,
-    analogMeters: 0
+    onlineDevices: 0,
+    offlineDevices: 0,
+    errorDevices: 0,
+    devicesByFaculty: {},
+    devicesByType: {}
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +41,7 @@ export function useDevices() {
   };
 
   const refreshDevices = () => {
+    console.log('[INFO] useDevices - Manual refresh triggered');
     fetchDevices();
   };
 

@@ -1,5 +1,6 @@
 import mqtt from 'mqtt';
 import { broadcastToSSE } from './sse-service';
+import pool from './database';
 
 export interface IoTDeviceData {
   device_id: string;
@@ -100,28 +101,26 @@ class MQTTService {
       });
     });
 
-    this.mqttClient.on('message', (topic, message) => {
+    this.mqttClient.on('message', async (topic, message) => {
       try {
         this.messageCount++;
         const data = JSON.parse(message.toString());
-        // Debug logs enabled to track message flow
-        console.log(`🎯 MQTT Message #${this.messageCount} received on ${topic}`);
-        console.log(`📊 Raw message: ${message.toString()}`);
-        console.log(`📋 Parsed data:`, JSON.stringify(data, null, 2));
         
         // Add timestamp if not present
         if (!data.timestamp) {
           data.timestamp = new Date().toISOString();
         }
 
+        // ตรวจสอบ device_id ใหม่สำหรับ data topics
+        if (topic.includes('/datas') || topic.includes('/data')) {
+          await this.checkNewDevice(data, topic);
+        }
+
         // Broadcast to all SSE clients
-        console.log(`🚀 Broadcasting to SSE clients...`);
         broadcastToSSE(topic, data);
-        console.log(`✅ Broadcast completed for topic: ${topic}`);
         
       } catch (error) {
         console.error('❌ Error processing MQTT message:', error);
-        console.error('❌ Raw message:', message.toString());
       }
     });
 
@@ -132,6 +131,107 @@ class MQTTService {
     this.mqttClient.on('disconnect', () => {
       console.log('Disconnected from MQTT broker');
     });
+  }
+
+  private async checkNewDevice(data: any, topic: string) {
+    try {
+      // ดึง device_id จาก data หรือ topic
+      const device_id = this.extractDeviceId(data, topic);
+      if (!device_id) {
+        return;
+      }
+
+      // ตรวจสอบว่า device_id นี้มีในฐานข้อมูลแล้วหรือไม่
+      const existingDevice = await pool.query(
+        'SELECT device_id FROM devices_prop WHERE device_id = $1',
+        [device_id]
+      );
+
+      if (existingDevice.rows.length === 0) {
+        // ส่งการแจ้งเตือนเกี่ยวกับ device ใหม่
+        const notificationData = {
+          type: 'new_device_detected',
+          device_id: device_id,
+          topic: topic,
+          sample_data: {
+            voltage: data.voltage,
+            current: data.current || data.current_amperage,
+            power: data.power || data.active_power,
+            frequency: data.frequency,
+            temperature: data.temperature || data.device_temperature
+          },
+          timestamp: new Date().toISOString(),
+          message: `ตรวจพบอุปกรณ์ใหม่: ${device_id} จาก topic: ${topic}`
+        };
+
+        // ส่งการแจ้งเตือนผ่าน SSE ไปยัง admin dashboard
+        broadcastToSSE('admin/new-device-notification', notificationData);
+      } else {
+        // อุปกรณ์มีอยู่แล้ว ให้อัปเดตข้อมูล
+        await this.updateDeviceData(device_id, data);
+      }
+    } catch (error) {
+      console.error('❌ Error checking new device:', error);
+    }
+  }
+
+  private extractDeviceId(data: any, topic: string): string | null {
+    // Method 1: จาก payload
+    if (data.device_id) {
+      return data.device_id;
+    }
+    
+    if (data.meter_id) {
+      return data.meter_id;
+    }
+    
+    // Method 2: จาก topic pattern - devices/faculty/device_id/type
+    const topicParts = topic.split('/');
+    if (topicParts.length >= 3 && topicParts[0] === 'devices') {
+      return topicParts[2]; // devices/faculty/[device_id]/type
+    }
+    
+    return null;
+  }
+
+  private async updateDeviceData(device_id: string, data: any) {
+    try {
+      // อัปเดตข้อมูลในตาราง devices_data
+      const updateQuery = `
+        UPDATE devices_data 
+        SET 
+          voltage = COALESCE($1, voltage),
+          current_amperage = COALESCE($2, current_amperage),
+          power_factor = COALESCE($3, power_factor),
+          frequency = COALESCE($4, frequency),
+          active_power = COALESCE($5, active_power),
+          reactive_power = COALESCE($6, reactive_power),
+          apparent_power = COALESCE($7, apparent_power),
+          device_temperature = COALESCE($8, device_temperature),
+          network_status = 'online',
+          last_data_received = CURRENT_TIMESTAMP,
+          data_collection_count = data_collection_count + 1,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE device_id = $9
+      `;
+      
+      const values = [
+        data.voltage,
+        data.current || data.current_amperage,
+        data.power_factor,
+        data.frequency,
+        data.power || data.active_power,
+        data.reactive_power,
+        data.apparent_power,
+        data.temperature || data.device_temperature,
+        device_id
+      ];
+      
+      await pool.query(updateQuery, values);
+      
+    } catch (error) {
+      console.error(`❌ Error updating device data for ${device_id}:`, error);
+    }
   }
 
   public getConnectionStatus() {

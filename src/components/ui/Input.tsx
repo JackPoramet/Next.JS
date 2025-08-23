@@ -11,14 +11,22 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
   label?: string;
   helperText?: string;
   errorText?: string;
-  leftIcon?: string;
-  rightIcon?: string;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+  loading?: boolean;
+  clearable?: boolean;
   className?: string;
   wrapperClassName?: string;
+  onClear?: () => void;
 }
 
-const getInputClasses = ({ variant = 'default', inputSize = 'md', state = 'default', fullWidth = false }: InputVariants) => {
-  const baseClasses = 'rounded-xl font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-1 shadow-sm hover:shadow-md';
+const getInputClasses = ({ 
+  variant = 'default', 
+  inputSize = 'md', 
+  state = 'default', 
+  fullWidth = false
+}: InputVariants) => {
+  const baseClasses = 'font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg';
   
   // Size variations
   const sizeClasses = {
@@ -27,14 +35,14 @@ const getInputClasses = ({ variant = 'default', inputSize = 'md', state = 'defau
     lg: 'px-5 py-4 text-base'
   };
   
-  // Variant styles
+  // Variant styles - คล้ายเดิม
   const variantClasses = {
-    default: 'border-2 border-gray-300 bg-white',
-    filled: 'border-0 bg-gray-100',
-    outlined: 'border-2 border-gray-400 bg-transparent'
+    default: 'border border-gray-300 bg-white hover:border-gray-400 shadow-sm',
+    filled: 'border-0 bg-gray-100 hover:bg-gray-200 focus:bg-white',
+    outlined: 'border-2 border-gray-400 bg-white hover:border-gray-500'
   };
   
-  // State colors
+  // State colors - เรียบง่ายขึ้น
   const stateClasses = {
     default: 'text-gray-800 focus:border-blue-500 focus:ring-blue-200',
     error: 'text-red-800 border-red-300 focus:border-red-500 focus:ring-red-200 bg-red-50',
@@ -54,45 +62,86 @@ export const Input: React.FC<InputProps> = ({
   errorText,
   leftIcon,
   rightIcon,
+  loading = false,
+  clearable = false,
   className = '',
   wrapperClassName = '',
   variant,
   inputSize,
   state,
   fullWidth,
+  onClear,
+  value,
+  onChange,
   ...props 
 }) => {
-  const inputClasses = getInputClasses({ variant, inputSize, state: errorText ? 'error' : state, fullWidth });
+  const finalState = errorText ? 'error' : state;
+  const inputClasses = getInputClasses({ variant, inputSize, state: finalState, fullWidth });
+  
+  const handleClear = () => {
+    if (onClear) {
+      onClear();
+    } else if (onChange) {
+      onChange({ target: { value: '' } } as React.ChangeEvent<HTMLInputElement>);
+    }
+  };
   
   return (
     <div className={`${fullWidth ? 'w-full' : ''} ${wrapperClassName}`}>
       {label && (
-        <label className="block text-sm font-bold text-gray-800 mb-3">
+        <label className="block text-sm font-semibold text-gray-800 mb-2">
           {label}
         </label>
       )}
       
       <div className="relative">
+        {/* Left Icon */}
         {leftIcon && (
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-            <span>{leftIcon}</span>
+            {leftIcon}
           </div>
         )}
         
         <input 
-          className={`${inputClasses} ${leftIcon ? 'pl-10' : ''} ${rightIcon ? 'pr-10' : ''} ${className}`}
+          className={`${inputClasses} ${
+            leftIcon ? 'pl-10' : ''
+          } ${
+            (rightIcon || loading || clearable) ? 'pr-10' : ''
+          } ${className}`}
+          value={value}
+          onChange={onChange}
           {...props}
         />
         
-        {rightIcon && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-            <span>{rightIcon}</span>
-          </div>
-        )}
+        {/* Right side icons/controls */}
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+          {loading && (
+            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
+          )}
+          
+          {clearable && value && !loading && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-gray-400 hover:text-gray-600 focus:outline-none"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+          
+          {rightIcon && !loading && (
+            <div className="text-gray-500">
+              {rightIcon}
+            </div>
+          )}
+        </div>
       </div>
       
+      {/* Helper/Error Text */}
       {(helperText || errorText) && (
-        <p className={`text-xs mt-2 font-semibold ${errorText ? 'text-red-600' : 'text-gray-600'}`}>
+        <p className={`text-xs mt-2 ${errorText ? 'text-red-600' : 'text-gray-600'}`}>
           {errorText || helperText}
         </p>
       )}

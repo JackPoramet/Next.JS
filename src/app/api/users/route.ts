@@ -261,7 +261,7 @@ function formatLastLogin(lastLogin: Date | null): string {
 }
 
 // Helper function to generate mock last login times (for fallback)
-function getRandomLastLogin(): string {
+function _getRandomLastLogin(): string {
   const options = [
     '2 hours ago',
     '5 hours ago', 

@@ -5,7 +5,7 @@ import { getSSEConnectionStats } from '../../../lib/sse-service';
 export async function GET() {
   try {
     // เริ่มต้น MQTT Service
-    const mqttService = getMQTTService();
+    const _mqttService = getMQTTService();
     
     // ดึงสถิติ SSE connections
     const sseStats = getSSEConnectionStats();

@@ -1,6 +1,13 @@
-# 📡 MQTT Test Devices - Python Scripts
+# 📡 MQTT Test Devices - Python Scripts (3-Phase System)
 
-ชุดสคริปต์ Python สำหรับทดสอบการส่งข้อมูล MQTT จากอุปกรณ์ IoT จำลอง
+ชุดสคริปต์ Python สำหรับทดสอบการส่งข้อมูล MQTT จากอุปกรณ์ IoT จำลองระบบไฟฟ้า 3 เฟส
+
+## ⚡ ระบบไฟฟ้า 3 เฟส
+
+- **แรงดันไฟ**: 380V Line-to-Line, 220V Phase-to-Neutral  
+- **เฟส**: A, B, C พร้อมข้อมูลแยกตามเฟส
+- **การวัด**: แรงดัน, กระแส, กำลังไฟฟ้า, Power Factor แยกทุกเฟส
+- **การคำนวณ**: รวมค่าทั้ง 3 เฟสสำหรับค่ารวม
 
 ## 🔧 Prerequisites
 
@@ -19,12 +26,12 @@ pip install -r requirements.txt
 
 ### 2. รันอุปกรณ์ทดสอบ
 
-#### Digital Device 1 - Smart Meter Engineering Lab
+#### Digital Device 1 - Smart Meter Engineering Lab (3-Phase)
 ```bash
 python digital_device_1.py
 ```
 
-#### Digital Device 2 - Power Monitor Library  
+#### Digital Device 2 - Power Monitor Library (3-Phase)
 ```bash
 python digital_device_2.py
 ```
@@ -46,19 +53,21 @@ python mqtt_monitor.py
 
 ## 📊 อุปกรณ์ที่จำลอง
 
-### 1. **Digital Device 1** - Smart Meter (Engineering Lab)
+### 1. **Digital Device 1** - Smart Meter (Engineering Lab) - 3-Phase System
 - 🆔 Device ID: `ENG_SM_LAB_01`
 - 🏢 Faculty: `engineering`
-- 📊 ข้อมูล: Voltage, Current, Power, Energy, Power Factor
+- ⚡ ระบบไฟฟ้า: 3-Phase (380V Line-to-Line, 220V Phase-to-Neutral)
+- 📊 ข้อมูล: Voltage, Current, Power, Energy, Power Factor (แยกทุกเฟส A, B, C)
 - ⏱️ ช่วงส่งข้อมูล: ทุก 5 วินาที
 - 🎯 จำลอง: การใช้ไฟฟ้าในห้องปฏิบัติการ มีการเปลี่ยนแปลงตามเวลา
 
-### 2. **Digital Device 2** - Power Monitor (Library)
+### 2. **Digital Device 2** - Power Monitor (Library) - 3-Phase System
 - 🆔 Device ID: `LIB_PM_MAIN_01`  
 - 🏢 Faculty: `institution`
-- 📊 ข้อมูล: Total Power, Reactive Power, Frequency, Power Quality
+- ⚡ ระบบไฟฟ้า: 3-Phase (380V Line-to-Line, 220V Phase-to-Neutral)
+- 📊 ข้อมูล: Total Power, Reactive Power, Frequency, Power Quality (แยกทุกเฟส A, B, C)
 - ⏱️ ช่วงส่งข้อมูล: ทุก 3 วินาที
-- 🎯 จำลอง: ระบบไฟฟ้าหลักห้องสมุด มีการตรวจสอบ Power Quality
+- 🎯 จำลอง: ระบบไฟฟ้าหลักห้องสมุด มีการตรวจสอบ Power Quality และ Voltage Unbalance
 
 ### 3. **Analog Device** - Environmental Sensor (Architecture Studio)
 - 🆔 Device ID: `ARC_ENV_STUDIO_01`

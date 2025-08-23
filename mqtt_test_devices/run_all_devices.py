@@ -49,8 +49,8 @@ class DeviceController:
         signal.signal(signal.SIGINT, self.signal_handler)
         
         devices_to_start = [
-            (SmartMeterDevice, "Smart Meter (Engineering Lab)"),
-            (PowerMonitorDevice, "Power Monitor (Library)"),
+            (SmartMeterDevice, "Smart Meter (Engineering Lab) - 3-Phase"),
+            (PowerMonitorDevice, "Power Monitor (Library) - 3-Phase"),
             (AnalogEnvironmentalSensor, "Environmental Sensor (Architecture Studio)")
         ]
         
@@ -95,9 +95,10 @@ class DeviceController:
 
 def main():
     """Main function"""
-    print("🌟 IoT Device Simulator - MQTT Test Suite")
+    print("🌟 IoT Device Simulator - MQTT Test Suite (3-Phase System)")
     print("📡 Connecting to: iot666.ddns.net:1883")
-    print("🏢 Simulating devices across 3 faculties")
+    print("🏢 Simulating 3-phase power devices across 3 faculties")
+    print("⚡ Power Systems: 380V Line-to-Line, 220V Phase-to-Neutral")
     print()
     
     controller = DeviceController()

@@ -15,11 +15,14 @@
 
 ### ✅ Major Updates Completed
 - **🏗️ MQTT Topic Restructure**: `devices/{faculty}/{device}/datas` และ `devices/{faculty}/{device}/prop`
+- **⚡ SSE Real-time Integration**: Server-Sent Events แทน WebSocket สำหรับ Real-time communication
 - **⚡ Status Logic Simplified**: Online/Offline detection ตาม 60-second timeout
 - **🌡️ Environmental Data Cleanup**: เหลือเฉพาะ temperature monitoring
 - **🐍 Python MQTT Simulators**: อุปกรณ์จำลอง 3 ตัวสำหรับทดสอบระบบ
 - **📊 Dashboard Improvements**: Real-time monitoring และ System Check แยกชัดเจน
 - **🔧 Architecture Optimization**: Python = Publisher, Next.js = Subscriber only
+- **⚡ Icon Updates**: ใช้ไอคอน ⚡ สำหรับอุปกรณ์ IoT เพื่อแสดงถึงการใช้พลังงานไฟฟ้า
+- **🔧 TypeScript Compilation**: แก้ไขปัญหา TypeScript และ ESLint errors ทั้งหมด
 
 ### 📚 เอกสารใหม่
 - [`📊 PROJECT_STATUS_2025.md`](./docs/PROJECT_STATUS_2025.md) - สถานะโปรเจคปัจจุบัน
@@ -57,8 +60,10 @@
 - ✅ **Dashboard แบบ Real-time** - แสดงข้อมูลการใช้พลังงานแบบเรียลไทม์ด้วย SSE (Server-Sent Events)
 - ✅ **ระบบรักษาความปลอดภัย** - Authentication และ Authorization ระดับ Enterprise
 - ✅ **รองรับ Multi-Faculty** - จัดการข้อมูลแบบแยกตามหน่วยงาน/คณะ (6 คณะ)
+- ✅ **SSE Real-time Communication** - Server-Sent Events สำหรับการสื่อสารแบบ Real-time
 - ✅ **MQTT Integration** - รองรับการรับส่งข้อมูลจากอุปกรณ์ IoT แบบ Real-time ผ่าน MQTT Protocol
-- ✅ **Dual Topic Structure** - แยกข้อมูล properties และ sensor data เพื่อการจัดการที่มีประสิทธิภาพ
+- ✅ **Dual Topic Structure** - แยกข้อมูล properties (`/prop`) และ sensor data (`/datas`) เพื่อการจัดการที่มีประสิทธิภาพ
+- ✅ **60-Second Timeout Logic** - ตรวจสอบสถานะอุปกรณ์ Online/Offline ตาม timestamp
 
 ### 🏛️ กรณีการใช้งาน
 - **มหาวิทยาลัย** - จัดการพลังงานไฟฟ้าของหลายคณะ/อาคาร (Engineering, Institution, Liberal Arts, Business Administration, Architecture, Industrial Education)
@@ -68,10 +73,13 @@
 
 ### 🆕 อัพเดทล่าสุด (สิงหาคม 2025)
 - **โครงสร้าง MQTT Topic ใหม่**: `devices/{faculty}/{device}/datas` และ `devices/{faculty}/{device}/prop`
+- **SSE Integration**: Server-Sent Events สำหรับ Real-time communication แทน WebSocket
 - **ระบบ Status แบบ Simplified**: Online/Offline detection ตาม timestamp (60 วินาที)
 - **ข้อมูล Environmental แบบ Simplified**: เหลือเฉพาะ temperature
-- **Python MQTT Devices**: อุปกรณ์จำลองสำหรับทดสอบระบบ
+- **Python MQTT Devices**: อุปกรณ์จำลองสำหรับทดสอบระบบ (3 simulators)
 - **Dashboard ปรับปรุงใหม่**: Real-time monitoring และ System Check
+- **Icon Enhancement**: ใช้ ⚡ แทน 📱 สำหรับ IoT Devices Management
+- **Build Optimization**: แก้ไข TypeScript compilation errors และ ESLint warnings
 
 ---
 
@@ -95,12 +103,14 @@
 ### 📡 ระบบ Real-time Communication
 - **Server-Sent Events (SSE)** - การสื่อสารแบบ Real-time ผ่าน HTTP streaming
 - **MQTT Integration** - รองรับโปรโตคอล MQTT สำหรับอุปกรณ์ IoT
+- **Dual Topic Architecture** - แยก `/datas` และ `/prop` topics สำหรับประสิทธิภาพ
 - **Multi-device Support** - รองรับการเชื่อมต่อหลายอุปกรณ์พร้อมกัน
 - **Auto-reconnection** - ระบบเชื่อมต่อใหม่อัตโนมัติเมื่อขาดการเชื่อมต่อ
 - **Connection Fallback** - ระบบ Fallback เมื่อเชื่อมต่อผิดพลาด
 - **Heartbeat Monitoring** - ตรวจสอบสถานะการเชื่อมต่อแบบ Real-time
 - **Cross-origin Support** - รองรับการเข้าถึงจากอุปกรณ์ต่างเครือข่าย
 - **Rate Limiting** - จำกัดการเชื่อมต่อต่อ IP เพื่อป้องกัน DoS
+- **60-Second Timeout** - ตรวจสอบสถานะ Online/Offline ตาม timestamp
 
 ### 📊 Dashboard และการแสดงผล
 - **Real-time IoT Dashboard** - แสดงข้อมูลอุปกรณ์แบบเรียลไทม์ผ่าน SSE
@@ -119,15 +129,18 @@
 - **Energy Data Display** - แสดงข้อมูล Voltage, Current, Power, Energy, Frequency, Power Factor
 - **Temperature Monitoring** - ติดตามอุณหภูมิอุปกรณ์ (environmental data simplified)
 - **Location Tracking** - จัดเก็บตำแหน่งติดตั้งอุปกรณ์ใน Properties topic
-- **Python Device Simulators** - อุปกรณ์จำลองสำหรับทดสอบระบบ
+- **Python Device Simulators** - อุปกรณ์จำลองสำหรับทดสอบระบบ (3 simulators)
+- **⚡ Visual Enhancement** - ใช้ไอคอนฟ้าผ่า (⚡) สำหรับ IoT Devices Management
 
 ### 🔧 System Management
 - **SSE Service Control** - ควบคุมและเริ่มต้น Server-Sent Events Service
-- **MQTT Broker Integration** - เชื่อมต่อและจัดการ MQTT Broker
+- **MQTT Broker Integration** - เชื่อมต่อและจัดการ MQTT Broker (`iot666.ddns.net:1883`)
 - **Service Health Check** - ตรวจสอบสถานะระบบ Database, MQTT, SSE, API
 - **Error Handling** - จัดการข้อผิดพลาดอย่างเหมาะสม
 - **Connection Statistics** - สถิติการเชื่อมต่อ SSE และการใช้งาน
 - **Debug Tools** - เครื่องมือ Debug สำหรับพัฒนา
+- **Topic Filtering** - กรองข้อมูล MQTT ตาม Faculty และ Device type
+- **Real-time Broadcasting** - แจกจ่ายข้อมูลแบบ Real-time ผ่าน SSE
 
 ---
 
@@ -153,7 +166,8 @@
   "database": "PostgreSQL 16+",
   "orm": "Raw SQL with pg",
   "authentication": "JWT + bcrypt",
-  "realtime": ["Server-Sent Events (SSE)", "MQTT"]
+  "realtime": ["Server-Sent Events (SSE)", "MQTT"],
+  "mqtt_broker": "iot666.ddns.net:1883"
 }
 ```
 
@@ -162,8 +176,10 @@
 {
   "sse": "Server-Sent Events HTTP Streaming",
   "mqtt": "mqtt.js v5.0+",
+  "broker": "iot666.ddns.net:1883",
   "protocols": ["SSE", "MQTT", "HTTP"],
-  "features": ["Auto-reconnection", "Rate Limiting", "Multi-client Support", "Cross-origin"]
+  "topics": ["devices/{faculty}/{device}/datas", "devices/{faculty}/{device}/prop"],
+  "features": ["Auto-reconnection", "Rate Limiting", "Multi-client Support", "Cross-origin", "60s Timeout"]
 }
 ```
 

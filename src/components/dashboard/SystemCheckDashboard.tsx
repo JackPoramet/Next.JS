@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSSE } from '@/hooks/useSSE';
 
 interface ConnectionStatus {
   status: 'checking' | 'connected' | 'disconnected' | 'error';
   message: string;
   lastCheck?: string;
-  details?: any;
+  details?: unknown;
 }
 
 interface SystemCheck {
@@ -19,9 +19,20 @@ interface SystemCheck {
 
 interface MQTTTopicData {
   topic: string;
-  data: any;
+  data: unknown;
   timestamp: string;
   count: number;
+}
+
+// API Response interface
+interface APITestResponse {
+  ok?: boolean;
+  status?: number;
+  statusText?: string;
+  headers?: Record<string, string>;
+  data?: unknown;
+  error?: boolean;
+  message?: string;
 }
 
 export default function SystemCheckDashboard() {
@@ -55,7 +66,7 @@ export default function SystemCheckDashboard() {
   const [requestMethod, setRequestMethod] = useState<string>('GET');
   const [requestBody, setRequestBody] = useState<string>('');
   const [requestHeaders, setRequestHeaders] = useState<string>('{"Content-Type": "application/json"}');
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<APITestResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [responseTime, setResponseTime] = useState<number>(0);
 
@@ -306,7 +317,7 @@ export default function SystemCheckDashboard() {
   };
 
   // Check All Systems
-  const checkAllSystems = async () => {
+  const checkAllSystems = useCallback(async () => {
     setSystemStatus({
       database: { status: 'checking', message: 'Checking...' },
       mqtt: { status: 'checking', message: 'Checking...' },
@@ -320,7 +331,7 @@ export default function SystemCheckDashboard() {
       checkSSE(),
       checkAPI()
     ]);
-  };
+  }, []);
 
   // SSE connection for MQTT monitoring
   const { isConnected } = useSSE({
@@ -329,7 +340,7 @@ export default function SystemCheckDashboard() {
         console.log('🎯 CLIENT: SSE message received in SystemCheckDashboard:', message);
         
         // รองรับทั้ง format เก่าและใหม่
-        let topic: string | undefined, payload: any = undefined, messageType: string = 'unknown';
+        let topic: string | undefined, payload: unknown = undefined, messageType: string = 'unknown';
         
         if (message.type === 'data' && message.data && typeof message.data === 'object' && message.data.type === 'mqtt') {
           // Format เก่า: {type: 'data', data: {type: 'mqtt', topic: '...', payload: '...'}}
@@ -414,7 +425,7 @@ export default function SystemCheckDashboard() {
     const startTime = Date.now();
 
     try {
-      let headers: any = {
+      let headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
 
@@ -476,7 +487,7 @@ export default function SystemCheckDashboard() {
   // Auto-check systems on component mount
   useEffect(() => {
     checkAllSystems();
-  }, []);
+  }, [checkAllSystems]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -938,8 +949,9 @@ export default function SystemCheckDashboard() {
                         const isOnline = (now - updateTime) <= 60000; // 1 minute timeout
                         const status = isOnline ? 'online' : 'offline';
                         
-                        const energyData = topicData?.data?.energy_data;
-                        const envData = topicData?.data?.environmental_data;
+                        const topicDataObj = topicData?.data as { energy_data?: unknown; environmental_data?: unknown } | undefined;
+                        const energyData = topicDataObj?.energy_data;
+                        const envData = topicDataObj?.environmental_data;
                         
                         return (
                           <tr key={topicKey} className="hover:bg-gray-50">
@@ -978,22 +990,22 @@ export default function SystemCheckDashboard() {
                               <div className="space-y-1">
                                 {energyData && (
                                   <div className="flex space-x-4">
-                                    {energyData.voltage && (
+                                    {(energyData as any)?.voltage && (
                                       <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                                        ⚡ {energyData.voltage}V
+                                        ⚡ {(energyData as any).voltage}V
                                       </span>
                                     )}
-                                    {energyData.active_power && (
+                                    {(energyData as any)?.active_power && (
                                       <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
-                                        🔋 {energyData.active_power.toFixed(1)}W
+                                        🔋 {(energyData as any).active_power.toFixed(1)}W
                                       </span>
                                     )}
                                   </div>
                                 )}
-                                {envData && envData.temperature && (
+                                {envData && (envData as any)?.temperature && (
                                   <div className="flex space-x-4">
                                     <span className="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">
-                                      🌡️ {envData.temperature}°C
+                                      🌡️ {(envData as any).temperature}°C
                                     </span>
                                   </div>
                                 )}

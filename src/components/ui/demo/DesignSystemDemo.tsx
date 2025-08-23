@@ -26,7 +26,7 @@ import {
 export default function DesignSystemDemo() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [selectedDemo, setSelectedDemo] = useState('');
+  const [_selectedDemo, _setSelectedDemo] = useState('');
 
   return (
     <Container size="xl">

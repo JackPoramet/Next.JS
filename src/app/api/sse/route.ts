@@ -11,7 +11,7 @@ import type { SSEMessage } from '../../../types/sse';
 export async function GET(request: NextRequest) {
   try {
     // เริ่มต้น MQTT Service
-    const mqttService = getMQTTService();
+    const _mqttService = getMQTTService();
 
     const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     console.log(`🖥️ User Agent: ${userAgent?.substring(0, 50)}...`);
 
     // สร้าง ReadableStream สำหรับ SSE
-    const encoder = new TextEncoder();
+    const _encoder = new TextEncoder();
     
     const stream = new ReadableStream({
       start(controller) {

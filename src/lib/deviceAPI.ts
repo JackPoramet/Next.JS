@@ -1,5 +1,27 @@
 // Device API client functions
+import { 
+  DeviceInfo, 
+  DeviceData,
+  DeviceProp,
+  MeterProp,
+  DeviceHistory,
+  DevicesStats, 
+  FACULTY_NAMES as FACULTY_MAPPING, 
+  METER_TYPE_NAMES as METER_TYPE_MAPPING, 
+  STATUS_NAMES as STATUS_MAPPING 
+} from './deviceModels';
 
+// Re-export interfaces from deviceModels for consumers
+export type { 
+  DeviceInfo, 
+  DeviceData, 
+  DeviceProp,
+  MeterProp,
+  DeviceHistory,
+  DevicesStats 
+};
+
+// Legacy interface - สำหรับ backward compatibility
 export interface Device {
   id: number;
   name: string;
@@ -28,33 +50,29 @@ export interface Device {
   created_at: string;
 }
 
-export interface DevicesStats {
-  totalDevices: number;
-  activeDevices: number;
-  digitalMeters: number;
-  analogMeters: number;
-  onlineDevices?: number;
-  offlineDevices?: number;
-}
-
+// Response interfaces
 export interface DevicesResponse {
   success: boolean;
   message: string;
   data: {
-    devices: Device[];
+    devices: DeviceInfo[];
     stats: DevicesStats;
   };
 }
 
+export interface DeviceDetailResponse {
+  success: boolean;
+  message: string;
+  data: {
+    deviceInfo: DeviceInfo;
+    deviceData: DeviceData;
+    deviceHistory: DeviceHistory[];
+    meterProp?: MeterProp;
+  };
+}
+
 // Faculty name mappings
-export const FACULTY_NAMES = {
-  'institution': 'สำนักงาน/บริหาร',
-  'engineering': 'คณะวิศวกรรมศาสตร์',
-  'liberal_arts': 'คณะศิลปศาสตร์',
-  'business_administration': 'คณะบริหารธุรกิจ',
-  'architecture': 'คณะสถาปัตยกรรมศาสตร์',
-  'industrial_education': 'คณะครุศาสตร์อุตสาหกรรม'
-} as const;
+export const FACULTY_NAMES = FACULTY_MAPPING;
 
 // Meter type name mappings
 export const METER_TYPE_NAMES = {
@@ -109,10 +127,10 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export const deviceAPI = {
-  // Get all devices
+  // Get all devices with combined data (devices_prop, devices_data)
   async getAllDevices(): Promise<DevicesResponse> {
     try {
-      const response = await fetch('/api/devices', {
+      const response = await fetch('/api/devices/list', {
         method: 'GET',
         headers: createHeaders(),
       });
@@ -120,61 +138,87 @@ export const deviceAPI = {
       return await handleResponse<DevicesResponse>(response);
     } catch (error) {
       console.error('[ERROR] deviceAPI.getAllDevices:', error);
-      throw error;
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        data: { 
+          devices: [],
+          stats: {
+            totalDevices: 0,
+            activeDevices: 0,
+            onlineDevices: 0,
+            offlineDevices: 0,
+            errorDevices: 0,
+            devicesByFaculty: {},
+            devicesByType: {}
+          }
+        }
+      };
     }
   },
 
-  // Get single device
-  async getDevice(id: number): Promise<{ success: boolean; message: string; data: Device }> {
+  // Get device details by ID
+  async getDeviceDetail(deviceId: string): Promise<DeviceDetailResponse> {
     try {
-      const response = await fetch(`/api/devices/${id}`, {
+      const response = await fetch(`/api/devices/${deviceId}`, {
         method: 'GET',
         headers: createHeaders(),
       });
 
-      return await handleResponse<{ success: boolean; message: string; data: Device }>(response);
+      return await handleResponse<DeviceDetailResponse>(response);
     } catch (error) {
-      console.error('[ERROR] deviceAPI.getDevice:', error);
-      throw error;
+      console.error('[ERROR] deviceAPI.getDeviceDetail:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        data: {
+          deviceInfo: {} as DeviceInfo,
+          deviceData: {} as DeviceData,
+          deviceHistory: []
+        }
+      };
     }
   },
 
-  // Create new device
-  async createDevice(deviceData: Omit<Device, 'id' | 'created_at' | 'updated_at'>): Promise<{ success: boolean; message: string; data: Device }> {
+  // Get device history data for charts
+  async getDeviceHistory(deviceId: string, days: number = 7): Promise<{ success: boolean; message: string; data: { history: DeviceHistory[] } }> {
     try {
-      const response = await fetch('/api/devices', {
-        method: 'POST',
+      const response = await fetch(`/api/devices/${deviceId}/history?days=${days}`, {
+        method: 'GET',
         headers: createHeaders(),
-        body: JSON.stringify(deviceData),
       });
 
-      return await handleResponse<{ success: boolean; message: string; data: Device }>(response);
+      return await handleResponse<{ success: boolean; message: string; data: { history: DeviceHistory[] } }>(response);
     } catch (error) {
-      console.error('[ERROR] deviceAPI.createDevice:', error);
-      throw error;
+      console.error('[ERROR] deviceAPI.getDeviceHistory:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        data: { history: [] }
+      };
     }
   },
 
-  // Update device
-  async updateDevice(id: number, deviceData: Partial<Omit<Device, 'id' | 'created_at' | 'updated_at'>>): Promise<{ success: boolean; message: string; data: Device }> {
+  // Update device property
+  async updateDeviceProp(deviceId: string, deviceData: Partial<DeviceProp>): Promise<{ success: boolean; message: string; data: DeviceProp }> {
     try {
-      const response = await fetch(`/api/devices/${id}`, {
+      const response = await fetch(`/api/devices/${deviceId}/properties`, {
         method: 'PUT',
         headers: createHeaders(),
         body: JSON.stringify(deviceData),
       });
 
-      return await handleResponse<{ success: boolean; message: string; data: Device }>(response);
+      return await handleResponse<{ success: boolean; message: string; data: DeviceProp }>(response);
     } catch (error) {
-      console.error('[ERROR] deviceAPI.updateDevice:', error);
+      console.error('[ERROR] deviceAPI.updateDeviceProp:', error);
       throw error;
     }
   },
 
   // Delete device
-  async deleteDevice(id: number): Promise<{ success: boolean; message: string }> {
+  async deleteDevice(deviceId: string): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await fetch(`/api/devices/${id}`, {
+      const response = await fetch(`/api/devices/${deviceId}`, {
         method: 'DELETE',
         headers: createHeaders(),
       });

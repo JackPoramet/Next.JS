@@ -65,11 +65,22 @@ export const withAuth = (handler: AuthenticatedHandler) => {
 export const withRole = (allowedRoles: string[]) => {
   return (handler: AuthenticatedHandler) => {
     return async (request: NextRequest): Promise<NextResponse> => {
+      console.log('[DEBUG] withRole middleware - Start');
+      console.log('[DEBUG] Allowed roles:', allowedRoles);
+      console.log('[DEBUG] Request URL:', request.url);
+      console.log('[DEBUG] Request method:', request.method);
+      
       try {
         // ตรวจสอบ authentication ก่อน
         const authResult = authenticateToken(request);
+        console.log('[DEBUG] Auth result:', { 
+          isAuthenticated: authResult.isAuthenticated, 
+          hasUser: !!authResult.user,
+          error: authResult.error 
+        });
         
         if (!authResult.isAuthenticated || !authResult.user) {
+          console.log('[DEBUG] Authentication failed');
           return createAuthResponse(
             false,
             null,
@@ -78,8 +89,18 @@ export const withRole = (allowedRoles: string[]) => {
           );
         }
 
+        console.log('[DEBUG] User authenticated:', { 
+          userId: authResult.user.userId, 
+          email: authResult.user.email, 
+          role: authResult.user.role 
+        });
+
         // ตรวจสอบ role authorization
-        if (!authorizeRole(authResult.user, allowedRoles)) {
+        const hasRole = authorizeRole(authResult.user, allowedRoles);
+        console.log('[DEBUG] Role check:', { userRole: authResult.user.role, allowedRoles, hasRole });
+        
+        if (!hasRole) {
+          console.log('[DEBUG] Role authorization failed');
           return createAuthResponse(
             false,
             null,
@@ -92,17 +113,38 @@ export const withRole = (allowedRoles: string[]) => {
         const authenticatedRequest = request as AuthenticatedRequest;
         authenticatedRequest.user = authResult.user;
 
+        console.log('[DEBUG] Calling handler function');
         // เรียก handler function
-        return await handler(authenticatedRequest);
+        const result = await handler(authenticatedRequest);
+        console.log('[DEBUG] Handler completed successfully');
+        return result;
         
       } catch (error) {
-        console.error('Role middleware error:', error);
-        return createAuthResponse(
-          false,
-          null,
-          'Internal server error',
-          500
-        );
+        console.error('[ERROR] Role middleware error:', error);
+        console.error('[ERROR] Error stack:', error instanceof Error ? error.stack : 'No stack');
+        
+        try {
+          return createAuthResponse(
+            false,
+            null,
+            'Internal server error',
+            500
+          );
+        } catch (responseError) {
+          console.error('[CRITICAL] Error creating error response in middleware:', responseError);
+          // Fallback manual response
+          return new NextResponse(
+            JSON.stringify({
+              success: false,
+              message: 'Critical server error',
+              data: null
+            }),
+            { 
+              status: 500,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
       }
     };
   };

@@ -17,7 +17,6 @@
     "db:list-users": "node scripts/list-users.js",
     "db:list-users-ts": "tsx scripts/list-users.ts",
     "db:test-login": "node scripts/test-last-login.js",
-    "migrate:last-login": "node scripts/migrate-last-login.js",
     "generate-secrets": "node generate-secrets.js"
   },
   "dependencies": {

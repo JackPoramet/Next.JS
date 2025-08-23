@@ -2,10 +2,28 @@ import { NextRequest } from 'next/server';
 import { getSSEConnectionStats } from '../../../lib/sse-service';
 import { getMQTTService } from '../../../lib/mqtt-service';
 
+interface SSEConnectionStats {
+  totalConnections: number;
+  connectionCounter: number;
+  serverStatus: 'running';
+  healthyConnections: number;
+  brokenConnections: number;
+  connections: Array<{
+    status: 'healthy' | 'broken';
+    desiredSize: number | null;
+  }>;
+}
+
+interface Recommendation {
+  type: string;
+  message: string;
+  action: string;
+}
+
 export async function GET(_request: NextRequest) {
   try {
     // เริ่มต้น MQTT Service (ถ้ายังไม่ได้เริ่ม)
-    const mqttService = getMQTTService();
+    const _mqttService = getMQTTService();
     
     // ดึงสถิติ SSE connections
     const connectionStats = getSSEConnectionStats();
@@ -48,8 +66,8 @@ export async function GET(_request: NextRequest) {
   }
 }
 
-function generateRecommendations(stats: any) {
-  const recommendations = [];
+function generateRecommendations(stats: SSEConnectionStats): Recommendation[] {
+  const recommendations: Recommendation[] = [];
   
   if (stats.brokenConnections > 0) {
     recommendations.push({

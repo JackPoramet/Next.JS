@@ -4,21 +4,47 @@ import { useEffect, useState } from 'react';
 import { useSSE } from '../../hooks/useSSE';
 import type { SSEMessage } from '../../types/sse';
 
-interface IoTData {
+interface _IoTData {
   topic: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
+}
+
+interface MeterData {
+  total_energy?: number;
+  daily_energy?: number;
+  monthly_energy?: number;
+  peak_demand?: number;
+  lastUpdate?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+}
+
+interface DeviceData {
+  energy_data?: {
+    voltage?: number;
+    current?: number;
+    active_power?: number;
+    frequency?: number;
+    power_factor?: number;
+  };
+  environmental_data?: {
+    temperature?: number;
+  };
+  lastUpdate?: string;
+  timestamp?: string;
+  [key: string]: unknown;
 }
 
 interface DevicesByFaculty {
   [faculty: string]: {
-    [deviceKey: string]: any;
+    [deviceKey: string]: DeviceData;
   };
 }
 
 export default function RealtimeDashboard() {
   const [devicesByFaculty, setDevicesByFaculty] = useState<DevicesByFaculty>({});
-  const [meterData, setMeterData] = useState<{[key: string]: any}>({});
+  const [meterData, setMeterData] = useState<{[key: string]: MeterData}>({});
   const [totalDevices, setTotalDevices] = useState<number>(0);
   const [totalMessages, setTotalMessages] = useState<number>(0);
   const [selectedFaculties, setSelectedFaculties] = useState<string[]>([]);
@@ -36,9 +62,9 @@ export default function RealtimeDashboard() {
   };
 
   // Helper function to get device status
-  const getDeviceStatus = (deviceData: any) => {
+  const getDeviceStatus = (deviceData: { lastUpdate?: string; timestamp?: string }) => {
     const lastUpdate = deviceData.lastUpdate || deviceData.timestamp;
-    return isDeviceOnline(lastUpdate) ? 'online' : 'offline';
+    return isDeviceOnline(lastUpdate || '') ? 'online' : 'offline';
   };
 
   // Periodic check for offline devices
@@ -69,7 +95,7 @@ export default function RealtimeDashboard() {
     }, 10000); // Check every 10 seconds
 
     return () => clearInterval(interval);
-  }, [OFFLINE_TIMEOUT]);
+  }, [OFFLINE_TIMEOUT, getDeviceStatus]);
   const facultyConfig: {[key: string]: {name: string, icon: string, color: string}} = {
     'engineering': { name: 'คณะวิศวกรรมศาสตร์', icon: '🔧', color: 'blue' },
     'institution': { name: 'สถาบันเทคโนโลยี', icon: '🏛️', color: 'purple' },
@@ -80,7 +106,7 @@ export default function RealtimeDashboard() {
   };
 
   // ฟังก์ชันสำหรับจัดการข้อมูลจาก SSE
-  const handleSSEData = (topic: string, data: any) => {
+  const handleSSEData = (topic: string, data: unknown) => {
     setTotalMessages(prev => prev + 1);
     
     console.log(`📊 Processing SSE data for topic: ${topic}`);
@@ -102,7 +128,7 @@ export default function RealtimeDashboard() {
           updated[faculty] = {};
         }
         updated[faculty][deviceKey] = {
-          ...data,
+          ...(typeof data === 'object' && data !== null ? data as Record<string, unknown> : {}),
           lastUpdate: new Date().toISOString(),
           topic: topic,
           computedStatus: 'online' // Device is online if sending data
@@ -111,7 +137,7 @@ export default function RealtimeDashboard() {
       });
       
       // อัปเดต total devices
-      setTotalDevices(prev => {
+      setTotalDevices(_prev => {
         const allDevices = new Set<string>();
         Object.values(devicesByFaculty).forEach(facultyDevices => {
           Object.keys(facultyDevices).forEach(deviceKey => {
@@ -125,11 +151,12 @@ export default function RealtimeDashboard() {
     }
     
     // Handle meter data if applicable
-    if (data.meter_id) {
+    const dataObj = data as { meter_id?: string };
+    if (dataObj.meter_id) {
       setMeterData(prev => ({
         ...prev,
-        [data.meter_id]: {
-          ...data,
+        [dataObj.meter_id!]: {
+          ...(typeof data === 'object' && data !== null ? data as Record<string, unknown> : {}),
           lastUpdate: new Date().toISOString(),
           topic: topic
         }
@@ -139,7 +166,7 @@ export default function RealtimeDashboard() {
 
   // ใช้ SSE hook
   const {
-    isConnected,
+    isConnected: _isConnected,
     connectionStatus,
     lastMessage,
     error,
@@ -497,7 +524,7 @@ export default function RealtimeDashboard() {
                             
                             <div className="flex justify-between text-xs text-gray-500 mt-3 pt-2 border-t">
                               <span>Last Update:</span>
-                              <span>{formatTimestamp(deviceData.lastUpdate || deviceData.timestamp)}</span>
+                              <span>{formatTimestamp(deviceData.lastUpdate || deviceData.timestamp || '')}</span>
                             </div>
                           </div>
                         </div>
@@ -563,7 +590,7 @@ export default function RealtimeDashboard() {
                     )}
                     <div className="flex justify-between text-xs text-gray-500 mt-3 pt-2 border-t">
                       <span>Last Update:</span>
-                      <span>{formatTimestamp(data.lastUpdate || data.timestamp)}</span>
+                      <span>{formatTimestamp(data.lastUpdate || data.timestamp || '')}</span>
                     </div>
                   </div>
                 </div>

@@ -1,14 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/store/authStore';
 import { DashboardLayout, MainContent } from '@/components/layout';
+
+// Define the interface for MainContent ref
+interface MainContentRef {
+  refreshDevices: () => void;
+}
 
 export default function DashboardPage() {
   const { user, isLoading, isAuthenticated, logout, checkAuth } = useAuth();
   const router = useRouter();
   const [activeMenu, setActiveMenu] = useState('dashboard');
+  const mainContentRef = useRef<MainContentRef>(null);
 
   useEffect(() => {
     // ตรวจสอบ authentication เมื่อ component mount
@@ -30,6 +36,17 @@ export default function DashboardPage() {
 
   const handleMenuChange = (menuId: string) => {
     setActiveMenu(menuId);
+  };
+
+  const handleDeviceApproved = () => {
+    // Force refresh of devices when a new device is approved
+    if (mainContentRef.current && mainContentRef.current.refreshDevices) {
+      mainContentRef.current.refreshDevices();
+    }
+    // Also refresh when on devices page
+    if (activeMenu === 'devices') {
+      setActiveMenu('devices'); // This will trigger a re-render
+    }
   };
 
   if (isLoading) {
@@ -54,8 +71,12 @@ export default function DashboardPage() {
       activeMenu={activeMenu}
       onMenuChange={handleMenuChange}
       onLogout={handleLogout}
+      onDeviceApproved={handleDeviceApproved}
     >
-      <MainContent activeMenu={activeMenu} />
+      <MainContent 
+        activeMenu={activeMenu} 
+        ref={mainContentRef}
+      />
     </DashboardLayout>
   );
 }

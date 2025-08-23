@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/store/authStore';
 
 export default function LoginForm() {
-  const { login, isLoading, error, clearError } = useAuth();
+  const { login, isLoading: _isLoading, error, clearError } = useAuth();
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 

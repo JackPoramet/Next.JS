@@ -2,9 +2,33 @@
 
 import { useEffect, useState } from 'react';
 
+interface TestResult {
+  name: string;
+  status: 'success' | 'error' | 'pending' | number;
+  data?: Record<string, unknown> | string | null;
+  error?: string;
+  timestamp: string;
+  endpoint?: string;
+  method?: string;
+  statusText?: string;
+  responseTime?: string;
+  success?: boolean;
+}
+
+interface _SwaggerSpec {
+  info?: {
+    title?: string;
+    description?: string;
+    version?: string;
+  };
+  servers?: Array<{
+    url?: string;
+  }>;
+}
+
 // API Tester Component
 function APITester() {
-  const [testResults, setTestResults] = useState<any[]>([]);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const testEndpoints = [
@@ -54,7 +78,8 @@ function APITester() {
       const responseTime = endTime - startTime;
       const data = await response.json();
       
-      const result = {
+      const result: TestResult = {
+        name: `${method} ${endpoint}`,
         endpoint,
         method,
         status: response.status,
@@ -71,7 +96,8 @@ function APITester() {
       const endTime = Date.now();
       const responseTime = endTime - startTime;
       
-      const result = {
+      const result: TestResult = {
+        name: `${method} ${endpoint}`,
         endpoint,
         method,
         status: 0,
@@ -171,7 +197,7 @@ function APITester() {
 
       {testResults.length === 0 && (
         <div className="text-center py-4 text-gray-600 text-xs font-medium">
-          Click "Test All" or individual endpoint buttons to start testing
+          Click &quot;Test All&quot; or individual endpoint buttons to start testing
         </div>
       )}
     </div>
@@ -179,7 +205,7 @@ function APITester() {
 }
 
 export default function SwaggerPage() {
-  const [swaggerSpec, setSwaggerSpec] = useState(null);
+  const [swaggerSpec, setSwaggerSpec] = useState<_SwaggerSpec | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -275,10 +301,10 @@ export default function SwaggerPage() {
           <div className="bg-white rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-bold text-gray-900">
-                {(swaggerSpec as any).info?.title || 'API Documentation'}
+                {swaggerSpec.info?.title || 'API Documentation'}
               </h2>
               <p className="text-sm text-gray-700 mt-1 font-medium">
-                {(swaggerSpec as any).info?.description || 'API documentation for IoT Energy Management System'}
+                {swaggerSpec.info?.description || 'API documentation for IoT Energy Management System'}
               </p>
             </div>
             
@@ -308,8 +334,8 @@ export default function SwaggerPage() {
                 <div>
                   <h3 className="text-md font-bold text-gray-900 mb-3">Server Information</h3>
                   <div className="bg-gray-50 rounded-md p-4">
-                    <p className="font-semibold text-gray-800"><strong>Base URL:</strong> {(swaggerSpec as any).servers?.[0]?.url || 'http://localhost:3000'}</p>
-                    <p className="font-semibold text-gray-800"><strong>Version:</strong> {(swaggerSpec as any).info?.version || '1.0.0'}</p>
+                    <p className="font-semibold text-gray-800"><strong>Base URL:</strong> {swaggerSpec.servers?.[0]?.url || 'http://localhost:3000'}</p>
+                    <p className="font-semibold text-gray-800"><strong>Version:</strong> {swaggerSpec.info?.version || '1.0.0'}</p>
                   </div>
                 </div>
 
