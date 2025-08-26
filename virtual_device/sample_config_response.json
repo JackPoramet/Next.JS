@@ -1,0 +1,35 @@
+{
+  "device_id": "ESP32_ENGR_LAB_001",
+  "approved": true,
+  "registration_datetime": "2025-08-26T10:35:00Z",
+  
+  "meter_info": {
+    "meter_model_name": "PowerLogic PM8000",
+    "meter_manufacturer": "Schneider Electric",
+    "rated_voltage": 380,
+    "rated_current": 125,
+    "rated_power": 82000,
+    "power_phase": "three"
+  },
+  
+  "location_info": {
+    "faculty_name": "วิศวกรรมศาสตร์",
+    "building": "อาคารวิศวกรรมศาสตร์",
+    "floor": "3",
+    "room": "ห้องปฏิบัติการคอมพิวเตอร์"
+  },
+  
+  "administrative_info": {
+    "responsible_person": "อ.สมชาย ใจดี",
+    "contact_info": "somchai.jaidee@university.ac.th",
+    "admin_notes": "มิเตอร์สำหรับห้องปฏิบัติการคอมพิวเตอร์"
+  },
+  
+  "data_collection_settings": {
+    "collection_interval": 15,
+    "enabled_measurements": [
+      "voltage", "current", "power", "power_quality", 
+      "energy_consumption", "environmental", "device_status"
+    ]
+  }
+}

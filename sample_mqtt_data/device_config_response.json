@@ -1,0 +1,110 @@
+{
+  "registration_status": "approved",
+  "device_id": "ESP32_ENGR_001",
+  "approval_timestamp": "2024-08-23T15:45:30.000Z",
+  "approved_by": "admin@university.ac.th",
+  
+  "registered_device_info": {
+    "internal_id": 1001,
+    "device_name": "Computer Engineering Meter Reader",
+    "status": "active",
+    "is_enabled": true
+  },
+  
+  "assigned_meter": {
+    "meter_id": 501,
+    "meter_model": "Schneider EM6400 3-Phase",
+    "manufacturer": "Schneider Electric",
+    "meter_type": "digital",
+    "power_specifications": {
+      "rated_voltage": 380.0,
+      "rated_current": 100.0,
+      "rated_power": 65000.0,
+      "power_phase": "three",
+      "frequency": 50.0,
+      "accuracy": "Class 1"
+    }
+  },
+  
+  "assigned_location": {
+    "location_id": 201,
+    "faculty_code": "engineering",
+    "faculty_name": "คณะวิศวกรรมศาสตร์",
+    "building": "Computer Engineering Building",
+    "floor": "2",
+    "room": "Server Room A201",
+    "position": "Main Electrical Panel"
+  },
+  
+  "device_configuration": {
+    "data_collection_interval": 60,
+    "enable_data_transmission": true,
+    "mqtt_topics": {
+      "data_topic": "devices/engineering/ESP32_ENGR_001/data",
+      "status_topic": "devices/engineering/ESP32_ENGR_001/status",
+      "config_topic": "devices/engineering/ESP32_ENGR_001/config"
+    },
+    "measurement_settings": {
+      "enable_three_phase": true,
+      "enable_harmonics": true,
+      "enable_power_quality": true,
+      "enable_phase_sequence": true,
+      "enable_unbalance_monitoring": true,
+      "sampling_rate": 1000
+    }
+  },
+  
+  "operational_parameters": {
+    "heartbeat_interval": 300,
+    "error_reporting": true,
+    "auto_calibration": false,
+    "maintenance_schedule": {
+      "next_maintenance": "2024-11-23T00:00:00.000Z",
+      "maintenance_interval_days": 90
+    }
+  },
+  
+  "data_format_requirements": {
+    "timestamp_format": "ISO8601",
+    "decimal_places": 3,
+    "required_fields": [
+      "device_id",
+      "timestamp",
+      "voltage",
+      "current_amperage",
+      "active_power",
+      "power_factor",
+      "frequency",
+      "device_temperature",
+      "voltage_phase_b",
+      "voltage_phase_c",
+      "current_phase_b", 
+      "current_phase_c",
+      "power_factor_phase_b",
+      "power_factor_phase_c",
+      "active_power_phase_a",
+      "active_power_phase_b",
+      "active_power_phase_c"
+    ],
+    "optional_fields": [
+      "reactive_power",
+      "apparent_power",
+      "total_energy",
+      "daily_energy",
+      "total_energy_import",
+      "total_energy_export",
+      "voltage_unbalance",
+      "current_unbalance",
+      "phase_sequence",
+      "thd_voltage",
+      "thd_current"
+    ]
+  },
+  
+  "administrative_info": {
+    "responsible_person": "อาจารย์วิทยา คอมพิวเตอร์",
+    "contact_info": "vitya.comp@university.ac.th",
+    "installation_notes": "อนุมัติการติดตั้งในห้อง Server Room A201 สำหรับการติดตามการใช้พลังงาน",
+    "approval_notes": "อุปกรณ์ผ่านการตรวจสอบและอนุมัติให้ใช้งานได้"
+  }
+}

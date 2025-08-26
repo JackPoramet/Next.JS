@@ -12,6 +12,7 @@ interface DashboardLayoutProps {
   onMenuChange: (menuId: string) => void;
   onLogout: () => void;
   onDeviceApproved?: () => void;
+  onNavigateToDeviceApproval?: () => void;
 }
 
 export default function DashboardLayout({
@@ -21,7 +22,8 @@ export default function DashboardLayout({
   activeMenu,
   onMenuChange,
   onLogout,
-  onDeviceApproved
+  onDeviceApproved,
+  onNavigateToDeviceApproval
 }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -41,6 +43,7 @@ export default function DashboardLayout({
         userRole={userRole}
         onToggleSidebar={toggleSidebar}
         onDeviceApproved={onDeviceApproved}
+        onNavigateToDeviceApproval={onNavigateToDeviceApproval}
       />
 
       {/* Sidebar */}

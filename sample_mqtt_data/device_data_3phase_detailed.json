@@ -1,0 +1,162 @@
+{
+  "device_id": "ESP32_ENGR_001",
+  "timestamp": "2024-08-23T14:30:25.123Z",
+  "measurement_interval": 15,
+  "sequence_number": 1234,
+  
+  "network_status": "online",
+  "connection_quality": 92,
+  "signal_strength": -45,
+  
+  "three_phase_electrical_data": {
+    "system_type": "three_phase_four_wire",
+    "nominal_frequency": 50.0,
+    "measured_frequency": 50.1,
+    
+    "phase_a": {
+      "voltage": 380.5,
+      "current": 45.8,
+      "power_factor": 0.88,
+      "active_power": 9480.5,
+      "reactive_power": 4125.8,
+      "apparent_power": 10330.2,
+      "phase_angle": 0.0
+    },
+    
+    "phase_b": {
+      "voltage": 379.8,
+      "current": 44.2,
+      "power_factor": 0.85,
+      "active_power": 9120.8,
+      "reactive_power": 4890.5,
+      "apparent_power": 10298.6,
+      "phase_angle": -120.1
+    },
+    
+    "phase_c": {
+      "voltage": 381.2,
+      "current": 46.5,
+      "power_factor": 0.90,
+      "active_power": 9849.2,
+      "reactive_power": 3950.2,
+      "apparent_power": 10612.8,
+      "phase_angle": 119.8
+    },
+    
+    "totals": {
+      "total_active_power": 28450.5,
+      "total_reactive_power": 12966.5,
+      "total_apparent_power": 31241.6,
+      "average_power_factor": 0.88,
+      "power_factor_total": 0.91
+    },
+    
+    "line_voltages": {
+      "voltage_ab": 658.2,
+      "voltage_bc": 657.8,
+      "voltage_ca": 659.1
+    },
+    
+    "neutral_data": {
+      "neutral_current": 2.5,
+      "neutral_voltage": 1.2
+    }
+  },
+  
+  "power_quality_analysis": {
+    "voltage_unbalance": 0.35,
+    "current_unbalance": 2.1,
+    "phase_sequence": "positive",
+    
+    "total_harmonic_distortion": {
+      "thd_voltage_a": 1.2,
+      "thd_voltage_b": 1.8,
+      "thd_voltage_c": 1.5,
+      "thd_current_a": 3.2,
+      "thd_current_b": 3.8,
+      "thd_current_c": 3.1
+    },
+    
+    "individual_harmonics": {
+      "voltage_harmonics": {
+        "3rd": 0.8,
+        "5th": 0.6,
+        "7th": 0.4,
+        "11th": 0.3,
+        "13th": 0.2
+      },
+      "current_harmonics": {
+        "3rd": 2.1,
+        "5th": 1.8,
+        "7th": 1.2,
+        "11th": 0.8,
+        "13th": 0.5
+      }
+    }
+  },
+  
+  "energy_measurements": {
+    "total_energy_import": 856789.245,
+    "total_energy_export": 125.5,
+    "daily_energy_import": 245.678,
+    "daily_energy_export": 12.5,
+    "monthly_energy": 7356.789,
+    "peak_demand": 35500.0,
+    "peak_demand_timestamp": "2024-08-23T13:45:00.000Z",
+    
+    "energy_per_phase": {
+      "phase_a_energy": 285596.415,
+      "phase_b_energy": 280132.830,
+      "phase_c_energy": 291060.000
+    }
+  },
+  
+  "environmental_monitoring": {
+    "device_temperature": 42.8,
+    "enclosure_temperature": 45.2,
+    "ambient_temperature": 28.5,
+    "humidity": 65.2
+  },
+  
+  "device_health": {
+    "uptime_hours": 168,
+    "cpu_temperature": 55.2,
+    "memory_usage": 68,
+    "storage_usage": 45,
+    "last_maintenance": "2024-07-15T10:00:00.000Z",
+    "last_data_received": "2024-08-23T14:30:25.123Z",
+    "data_collection_count": 40320,
+    "last_error_code": null,
+    "last_error_message": null,
+    "last_error_time": null,
+    "error_count_today": 0,
+    "communication_errors_24h": 2
+  },
+  
+  "meter_communication": {
+    "modbus_status": "ok",
+    "modbus_response_time": 185,
+    "last_successful_read": "2024-08-23T14:30:20.000Z",
+    "read_attempts_today": 5760,
+    "read_errors_today": 2,
+    "communication_success_rate": 99.97,
+    "register_read_status": {
+      "voltage_registers": "ok",
+      "current_registers": "ok", 
+      "power_registers": "ok",
+      "energy_registers": "ok",
+      "quality_registers": "ok"
+    }
+  },
+  
+  "data_quality": {
+    "measurement_confidence": 98.5,
+    "calibration_status": "valid",
+    "last_calibration": "2024-01-15T00:00:00.000Z",
+    "next_calibration_due": "2025-01-15T00:00:00.000Z",
+    "anomaly_detected": false,
+    "data_validation_passed": true,
+    "phase_balance_check": "within_limits",
+    "frequency_stability": "stable"
+  }
+}

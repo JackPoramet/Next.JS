@@ -49,6 +49,11 @@ export default function DashboardPage() {
     }
   };
 
+  const handleNavigateToDeviceApproval = () => {
+    // Switch to device-approval menu when notification bell is clicked
+    setActiveMenu('device-approval');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -72,6 +77,7 @@ export default function DashboardPage() {
       onMenuChange={handleMenuChange}
       onLogout={handleLogout}
       onDeviceApproved={handleDeviceApproved}
+      onNavigateToDeviceApproval={handleNavigateToDeviceApproval}
     >
       <MainContent 
         activeMenu={activeMenu} 

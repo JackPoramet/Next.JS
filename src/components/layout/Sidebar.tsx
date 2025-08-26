@@ -18,16 +18,20 @@ export default function Sidebar({
   onLogout 
 }: SidebarProps) {
   const menuItems = [
-  { id: 'dashboard', name: 'Dashboard', icon: '🏠' },
-  { id: 'realtime', name: 'Real-time Monitor', icon: '📡' },
-  { id: 'energy', name: 'Energy Monitor', icon: '⚡' },
-  { id: 'devices', name: 'IoT Devices', icon: '📱' },
-  { id: 'users', name: 'Users', icon: '👥' },
-  { id: 'project-details', name: 'Project Details', icon: '📄' },
-  { id: 'system-check', name: 'System Check', icon: '🔧' },
-  { id: 'analytics', name: 'Analytics', icon: '📊' },
-  { id: 'reports', name: 'Reports', icon: '📈' },
-  { id: 'settings', name: 'Settings', icon: '⚙️' },
+    { id: 'dashboard', name: 'Dashboard', icon: '🏠' },
+    { id: 'realtime', name: 'Real-time Monitor', icon: '📡' },
+    { id: 'energy', name: 'Energy Monitor', icon: '⚡' },
+    { id: 'devices', name: 'IoT Devices', icon: '📱' },
+    // Admin-only menu items
+    ...(userRole === 'admin' ? [
+      { id: 'device-approval', name: 'Device Approval', icon: '✅' },
+    ] : []),
+    { id: 'users', name: 'Users', icon: '👥' },
+    { id: 'project-details', name: 'Project Details', icon: '📄' },
+    { id: 'system-check', name: 'System Check', icon: '🔧' },
+    { id: 'analytics', name: 'Analytics', icon: '📊' },
+    { id: 'reports', name: 'Reports', icon: '📈' },
+    { id: 'settings', name: 'Settings', icon: '⚙️' },
   ];
 
   const handleMenuClick = (menuId: string) => {

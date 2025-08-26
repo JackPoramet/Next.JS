@@ -5,15 +5,15 @@ import TableOfContents from '@/components/ui/TableOfContents';
 import { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { useAuth } from '@/store/authStore';
 import { useUsers, User } from '@/hooks/useUsers';
-import { useDevices } from '@/hooks/useDevices';
 import { userAPI, CreateUserData, UpdateUserData } from '@/lib/userAPI';
-import { deviceAPI as _deviceAPI, FACULTY_NAMES, METER_TYPE_NAMES, STATUS_NAMES, Device } from '@/lib/deviceAPI';
+import { FACULTY_NAMES, METER_TYPE_NAMES, STATUS_NAMES, Device } from '@/lib/deviceAPI';
 import { DeviceInfo } from '@/lib/deviceModels';
 import UserModal from '@/components/ui/UserModal';
 import ConfirmDeleteModal from '@/components/ui/ConfirmDeleteModal';
 import RealtimeDashboard from '@/components/dashboard/RealtimeDashboard';
 import SystemCheckDashboard from '@/components/dashboard/SystemCheckDashboard';
 import _NotificationBell from '@/components/ui/NotificationBell';
+import DeviceApprovalPage from '@/app/admin/device-approval/page';
 
 interface MainContentProps {
   activeMenu: string;
@@ -103,7 +103,23 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
   );
   const { user } = useAuth();
   const { users, stats, isLoading: usersLoading, error: usersError, refreshUsers } = useUsers();
-  const { devices, stats: _deviceStats, isLoading: devicesLoading, error: devicesError, refreshDevices } = useDevices();
+  
+  // Devices system disabled
+  const devices: DeviceInfo[] = [];
+  const _deviceStats = {
+    totalDevices: 0,
+    activeDevices: 0,
+    onlineDevices: 0,
+    offlineDevices: 0,
+    errorDevices: 0,
+    devicesByFaculty: {},
+    devicesByType: {}
+  };
+  const devicesLoading = false;
+  const devicesError = null;
+  const refreshDevices = () => {
+    console.log('[INFO] MainContent - Device refresh disabled');
+  };
   
   // Expose refreshDevices function to parent component
   useImperativeHandle(ref, () => ({
@@ -939,6 +955,10 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
   );
 }
 
+  const renderDeviceApproval = () => {
+    return <DeviceApprovalPage />;
+  }
+
   const renderUsers = () => {
     return (
     <div className="space-y-4 sm:space-y-6">
@@ -1659,6 +1679,12 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
             userEmail={`ID: ${deleteDeviceModal.device?.device_id || ''}`}
             isLoading={deleteDeviceModal.isLoading}
           />
+        </>
+      );
+    case 'device-approval':
+      return (
+        <>
+          {renderDeviceApproval()}
         </>
       );
     case 'users':

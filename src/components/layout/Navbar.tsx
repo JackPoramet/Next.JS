@@ -7,6 +7,7 @@ interface NavbarProps {
   onToggleSidebar: () => void;
   notifications?: number;
   onDeviceApproved?: () => void;
+  onNavigateToDeviceApproval?: () => void;
 }
 
 export default function Navbar({ 
@@ -14,7 +15,8 @@ export default function Navbar({
   userRole,
   onToggleSidebar, 
   notifications: _notifications = 0,
-  onDeviceApproved
+  onDeviceApproved,
+  onNavigateToDeviceApproval
 }: NavbarProps) {
   return (
     <nav className="bg-white shadow border-b border-gray-200">
@@ -36,7 +38,10 @@ export default function Navbar({
             
             {/* Admin Notifications Bell */}
             {userRole === 'admin' && (
-              <NotificationBell onDeviceApproved={onDeviceApproved} />
+              <NotificationBell 
+                onDeviceApproved={onDeviceApproved}
+                onNavigateToDeviceApproval={onNavigateToDeviceApproval}
+              />
             )}
             
             {/* API Documentation */}

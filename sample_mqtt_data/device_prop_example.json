@@ -1,0 +1,78 @@
+{
+  "device_id": "ESP32_ENGR_001",
+  "device_name": "Computer Engineering Meter Reader",
+  "data_collection_interval": 15,
+  "status": "online",
+  "timestamp": "2024-08-23T14:30:25.123Z",
+  
+  "device_prop": {
+    "device_type": "esp32_energy_monitor",
+    "firmware_version": "1.2.3",
+    "connection_type": "wifi",
+    "ip_address": "192.168.1.101",
+    "mac_address": "AA:BB:CC:DD:EE:01",
+    "install_date": "2024-08-23"
+  },
+  
+  "device_model": {
+    "model_name": "ESP32-S3-DevKitC",
+    "manufacturer": "Espressif Systems",
+    "supported_connections": ["wifi", "ethernet"]
+  },
+  
+  "meter_info": {
+    "meter_type": "digital",
+    "modbus_interface": "RS485",
+    "baud_rate": 9600,
+    "modbus_slave_id": 1,
+    "connection_status": "connected",
+    "suggested_meter_model": "Schneider EM6400 3-Phase",
+    "suggested_manufacturer": "Schneider Electric",
+    "supports_three_phase": true,
+    "supports_harmonics": true,
+    "supports_power_quality": true
+  },
+  
+  "power_specifications": {
+    "rated_voltage": 380.0,
+    "rated_current": 100.0,
+    "rated_power": 65000.0,
+    "power_phase": "three",
+    "frequency": 50.0,
+    "accuracy": "Class 1"
+  },
+  
+  "location_suggestion": {
+    "faculty_code": "engineering",
+    "faculty_name": "คณะวิศวกรรมศาสตร์",
+    "building": "Computer Engineering Building",
+    "floor": "2",
+    "room": "Main Electrical Room A201",
+    "position": "3-Phase Distribution Panel #1"
+  },
+  
+  "administrative": {
+    "responsible_person": "อาจารย์วิทยา คอมพิวเตอร์",
+    "contact_info": "vitya.comp@university.ac.th",
+    "suggested_device_name": "Computer Engineering Meter Reader"
+  },
+  
+  "discovery_metadata": {
+    "mqtt_topic_prefix": "devices/engineering/ESP32_ENGR_001",
+    "registration_required": true,
+    "discovered_at": "2024-08-23T14:30:25.123Z",
+    "discovery_source": "mqtt_auto_discovery",
+    "capabilities": [
+      "voltage_measurement",
+      "current_measurement", 
+      "power_calculation",
+      "three_phase_measurement",
+      "harmonic_analysis",
+      "power_quality_monitoring",
+      "frequency_measurement",
+      "temperature_monitoring",
+      "modbus_communication",
+      "wifi_connectivity"
+    ]
+  }
+}

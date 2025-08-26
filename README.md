@@ -14,6 +14,24 @@
 ## 🆕 อัพเดทล่าสุด (สิงหาคม 2025)
 
 ### ✅ Major Updates Completed
+
+#### 🔔 Notification System Overhaul
+- **Database-driven Notifications**: เปลี่ยนจาก SSE เป็นระบบแจ้งเตือนที่ดึงข้อมูลจาก `devices_pending` table
+- **Real-time Bell Icon**: กระดิ่งแจ้งเตือนแสดงจำนวนอุปกรณ์ใหม่ที่รอการอนุมัติ (polling ทุก 10 วินาทีสำหรับ admin)
+- **Smart Navigation**: คลิกกระดิ่งแจ้งเตือนจะนำทางไปยังหน้า Device Approval ใน dashboard โดยอัตโนมัติ
+
+#### 📡 IoT Device Discovery & MQTT Integration
+- **Virtual Device Simulator**: Python scripts จำลองอุปกรณ์ IoT ส่งข้อมูลผ่าน MQTT
+- **MQTT → Database Pipeline**: ระบบรับข้อมูลจาก MQTT และบันทึกลง `devices_pending` table อัตโนมัติ
+- **Nested JSON Processing**: แก้ไขการแปลง nested `device_prop` object จาก MQTT messages
+- **Auto Cleanup Service**: ลบอุปกรณ์ที่ไม่มีการอัพเดทมานาน 60 วินาทีอัตโนมัติ (ทำงานทุก 30 วินาที)
+
+#### 🎛️ Admin Dashboard Enhancement
+- **Device Approval Menu**: เพิ่มเมนู "Device Approval" สำหรับ admin ในการจัดการอุปกรณ์รอการอนุมัติ
+- **Role-based Navigation**: เมนูแสดงตาม role ผู้ใช้ (admin เท่านั้นที่เห็น device approval)
+- **Integrated Workflow**: ระบบการทำงานที่เชื่อมต่อกันจาก MQTT → Database → Notification → Admin Interface
+
+#### 🛠️ Previous Core Features
 - **🏗️ MQTT Topic Restructure**: `devices/{faculty}/{device}/datas` และ `devices/{faculty}/{device}/prop`
 - **⚡ SSE Real-time Integration**: Server-Sent Events แทน WebSocket สำหรับ Real-time communication
 - **⚡ Status Logic Simplified**: Online/Offline detection ตาม 60-second timeout
@@ -28,6 +46,15 @@
 - [`📊 PROJECT_STATUS_2025.md`](./docs/PROJECT_STATUS_2025.md) - สถานะโปรเจคปัจจุบัน
 - [`📡 MQTT_TOPICS_GUIDE.md`](./docs/MQTT_TOPICS_GUIDE.md) - คู่มือ Topic structure ใหม่
 - [`📋 docs/README.md`](./docs/README.md) - ดัชนีเอกสารทั้งหมด
+- [`🔔 DEVICE_APPROVAL_WORKFLOW.md`](./docs/DEVICE_APPROVAL_WORKFLOW.md) - คู่มือระบบอนุมัติอุปกรณ์ใหม่
+- [`🐍 Virtual Device Simulator`](./mqtt_test_devices/) - Python scripts สำหรับจำลองอุปกรณ์ IoT
+
+### 🏗️ สถาปัตยกรรมใหม่: IoT Device Discovery
+```
+MQTT Device → devices_pending Table → Notification Bell → Admin Dashboard → Device Approval
+     ↓                ↓                    ↓                    ↓                ↓
+Virtual Simulator  Auto Cleanup       Real-time Polling    Role-based UI    Approval Interface
+```
 
 ---
 
@@ -64,6 +91,9 @@
 - ✅ **MQTT Integration** - รองรับการรับส่งข้อมูลจากอุปกรณ์ IoT แบบ Real-time ผ่าน MQTT Protocol
 - ✅ **Dual Topic Structure** - แยกข้อมูล properties (`/prop`) และ sensor data (`/datas`) เพื่อการจัดการที่มีประสิทธิภาพ
 - ✅ **60-Second Timeout Logic** - ตรวจสอบสถานะอุปกรณ์ Online/Offline ตาม timestamp
+- ✅ **🔔 IoT Device Discovery** - ระบบค้นพบอุปกรณ์ใหม่ผ่าน MQTT และแจ้งเตือน admin แบบ real-time
+- ✅ **🎛️ Device Approval Workflow** - ระบบอนุมัติอุปกรณ์ใหม่สำหรับ admin พร้อม auto cleanup
+- ✅ **🔄 Database-driven Notifications** - ระบบแจ้งเตือนที่ดึงข้อมูลจาก database แทน SSE
 
 ### 🏛️ กรณีการใช้งาน
 - **มหาวิทยาลัย** - จัดการพลังงานไฟฟ้าของหลายคณะ/อาคาร (Engineering, Institution, Liberal Arts, Business Administration, Architecture, Industrial Education)
@@ -123,14 +153,18 @@
 
 ### 🏭 การจัดการอุปกรณ์ IoT
 - **Device Registration** - ลงทะเบียนอุปกรณ์ Smart Meter
+- **🔔 Device Discovery & Notifications** - ค้นพบอุปกรณ์ใหม่ผ่าน MQTT และแจ้งเตือน admin แบบ real-time
+- **🎛️ Admin Device Approval** - หน้าจัดการอนุมัติอุปกรณ์ใหม่สำหรับ admin เท่านั้น
+- **⚡ Auto Cleanup Service** - ลบอุปกรณ์ที่ไม่มีการอัพเดทมานาน 60 วินาทีอัตโนมัติ (ทำงานทุก 30 วินาที)
 - **Faculty-based Organization** - จัดกลุ่มอุปกรณ์ตาม 6 คณะ (Engineering, Institution, Liberal Arts, Business Administration, Architecture, Industrial Education)
 - **Dual Topic Structure** - แยกข้อมูล Properties (`/prop`) และ Sensor Data (`/datas`)
 - **Real-time Status Monitoring** - ติดตามสถานะ Online/Offline ตาม timestamp (60 วินาที)
 - **Energy Data Display** - แสดงข้อมูล Voltage, Current, Power, Energy, Frequency, Power Factor
 - **Temperature Monitoring** - ติดตามอุณหภูมิอุปกรณ์ (environmental data simplified)
 - **Location Tracking** - จัดเก็บตำแหน่งติดตั้งอุปกรณ์ใน Properties topic
-- **Python Device Simulators** - อุปกรณ์จำลองสำหรับทดสอบระบบ (3 simulators)
+- **Python Device Simulators** - อุปกรณ์จำลองสำหรับทดสอบระบบ (3 simulators + virtual device)
 - **⚡ Visual Enhancement** - ใช้ไอคอนฟ้าผ่า (⚡) สำหรับ IoT Devices Management
+- **🔄 Database-driven Workflow** - ข้อมูลอุปกรณ์ใหม่บันทึกลง `devices_pending` table ผ่าน MQTT
 
 ### 🔧 System Management
 - **SSE Service Control** - ควบคุมและเริ่มต้น Server-Sent Events Service
@@ -500,6 +534,38 @@ graph TD
 - **Real-time Architecture** - SSE + MQTT Integration
 - **Event-driven Pattern** - Server-Sent Events สำหรับ Real-time Communication
 
+### 🗄️ Database Schema Updates
+
+#### 📊 New Tables Added
+```sql
+-- Device Pending Table (IoT Device Discovery)
+CREATE TABLE devices_pending (
+  id SERIAL PRIMARY KEY,
+  device_id VARCHAR(255) NOT NULL UNIQUE,
+  device_name VARCHAR(255),
+  device_type VARCHAR(100),
+  ip_address INET,
+  mac_address VARCHAR(17),
+  firmware_version VARCHAR(50),
+  connection_type VARCHAR(50),
+  approval_status_id INTEGER DEFAULT 1,
+  mqtt_data JSONB,
+  discovered_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  discovery_source VARCHAR(50) DEFAULT 'mqtt'
+);
+
+-- Auto cleanup trigger (removes devices inactive > 60 seconds)
+-- Runs every 30 seconds via cleanup-service.ts
+```
+
+#### 🔧 Database Workflow
+```
+MQTT Device Discovery → devices_pending → Admin Notification → Device Approval
+                           ↓
+                    Auto Cleanup (60s timeout)
+```
+
 ---
 
 ## 🔧 การติดตั้ง
@@ -572,6 +638,29 @@ npm run dev
 ```
 
 🎉 **เปิดเบราว์เซอร์** ไปที่ `http://localhost:3000`
+
+### 🔔 Testing IoT Device Discovery
+
+#### 1. Run Virtual Device Simulator
+```bash
+# เข้าไปในโฟลเดอร์ MQTT test devices
+cd mqtt_test_devices
+
+# ติดตั้ง Python dependencies
+pip install -r requirements.txt
+
+# รัน Virtual Device Simulator
+python virtual_device.py
+```
+
+#### 2. Monitor Admin Notifications
+- Login เป็น admin
+- ดูกระดิ่งแจ้งเตือนด้านบนขว้า (จะแสดงจำนวนอุปกรณ์ใหม่)
+- คลิกกระดิ่งจะนำไปหน้า Device Approval อัตโนมัติ
+
+#### 3. Cleanup Service
+- อุปกรณ์ที่ไม่ส่งข้อมูลมานาน 60 วินาทีจะถูกลบอัตโนมัติ
+- Cleanup Service ทำงานทุก 30 วินาที
 
 ### 🔧 Network Configuration
 

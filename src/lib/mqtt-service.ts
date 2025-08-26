@@ -1,6 +1,7 @@
 import mqtt from 'mqtt';
 import { broadcastToSSE } from './sse-service';
 import pool from './database';
+import { getCleanupService } from './cleanup-service';
 
 export interface IoTDeviceData {
   device_id: string;
@@ -53,6 +54,10 @@ class MQTTService {
 
       this.setupMQTTListeners();
 
+      // Start cleanup service
+      const cleanupService = getCleanupService();
+      console.log('🧹 Cleanup service status:', cleanupService.getStatus());
+
       this.isInitialized = true;
   // log removed
     } catch (error) {
@@ -72,6 +77,7 @@ class MQTTService {
         'devices/institution/+/prop',    // Institution department device properties
         'devices/engineering/+/datas',   // Engineering department device data
         'devices/engineering/+/prop',    // Engineering department device properties
+        'devices/engineering/+/data',    // Engineering department device data (single)
         'devices/liberal_arts/+/datas',  // Liberal Arts department device data
         'devices/liberal_arts/+/prop',   // Liberal Arts department device properties
         'devices/business_administration/+/datas', // Business Administration device data
@@ -109,6 +115,11 @@ class MQTTService {
         // Add timestamp if not present
         if (!data.timestamp) {
           data.timestamp = new Date().toISOString();
+        }
+
+        // Handle /prop messages - บันทึกลง devices_pending table
+        if (topic.includes('/prop')) {
+          await this.handleDevicePropertiesMessage(data, topic);
         }
 
         // ตรวจสอบ device_id ใหม่สำหรับ data topics
@@ -194,6 +205,102 @@ class MQTTService {
     return null;
   }
 
+  private async handleDevicePropertiesMessage(data: any, topic: string) {
+    try {
+      console.log('📨 Device Properties Message:', { topic, device_id: data.device_id });
+      
+      if (!data.device_id) {
+        console.error('❌ Missing device_id in prop message');
+        return;
+      }
+
+      // Extract device properties from nested structure or root level
+      const deviceProp = data.device_prop || {};
+      const deviceInfo = {
+        device_id: data.device_id,
+        device_name: data.device_name || deviceProp.device_name,
+        device_type: data.device_type || deviceProp.device_type || 'IoT Device',
+        ip_address: data.ip_address || deviceProp.ip_address,
+        mac_address: data.mac_address || deviceProp.mac_address,
+        firmware_version: data.firmware_version || deviceProp.firmware_version,
+        connection_type: data.connection_type || deviceProp.connection_type || 'wifi'
+      };
+
+      console.log('🔍 Extracted device info:', deviceInfo);
+
+      // Check if device already in pending list
+      const existingPending = await pool.query(
+        'SELECT device_id FROM devices_pending WHERE device_id = $1',
+        [deviceInfo.device_id]
+      );
+
+      if (existingPending.rows.length > 0) {
+        // Update existing pending device
+        await pool.query(`
+          UPDATE devices_pending 
+          SET 
+            device_name = COALESCE($1, device_name),
+            device_type = COALESCE($2, device_type),
+            ip_address = COALESCE($3, ip_address),
+            mac_address = COALESCE($4, mac_address),
+            firmware_version = COALESCE($5, firmware_version),
+            connection_type = COALESCE($6, connection_type),
+            mqtt_data = $7,
+            last_seen_at = CURRENT_TIMESTAMP,
+            discovery_source = 'mqtt'
+          WHERE device_id = $8
+        `, [
+          deviceInfo.device_name,
+          deviceInfo.device_type,
+          deviceInfo.ip_address,
+          deviceInfo.mac_address,
+          deviceInfo.firmware_version,
+          deviceInfo.connection_type,
+          JSON.stringify(data),
+          deviceInfo.device_id
+        ]);
+        
+        console.log(`🔄 Updated pending device: ${deviceInfo.device_id}`);
+      } else {
+        // Insert new pending device
+        await pool.query(`
+          INSERT INTO devices_pending (
+            device_id, device_name, device_type, ip_address, 
+            mac_address, firmware_version, connection_type,
+            approval_status_id, mqtt_data, discovered_at,
+            last_seen_at, discovery_source
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'mqtt')
+        `, [
+          deviceInfo.device_id,
+          deviceInfo.device_name || `Device ${deviceInfo.device_id}`,
+          deviceInfo.device_type,
+          deviceInfo.ip_address,
+          deviceInfo.mac_address,
+          deviceInfo.firmware_version,
+          deviceInfo.connection_type,
+          JSON.stringify(data)
+        ]);
+        
+        console.log(`✅ Added new pending device: ${deviceInfo.device_id}`);
+        
+        // Send notification to admin
+        const notificationData = {
+          type: 'new_device_pending',
+          device_id: deviceInfo.device_id,
+          device_name: deviceInfo.device_name || `Device ${deviceInfo.device_id}`,
+          topic: topic,
+          timestamp: new Date().toISOString(),
+          message: `อุปกรณ์ใหม่รอการอนุมัติ: ${deviceInfo.device_id}`
+        };
+        
+        broadcastToSSE('admin/device-pending-notification', notificationData);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error handling device properties message:', error);
+    }
+  }
+
   private async updateDeviceData(device_id: string, data: any) {
     try {
       // อัปเดตข้อมูลในตาราง devices_data
@@ -239,6 +346,28 @@ class MQTTService {
       mqtt: this.mqttClient?.connected || false,
       initialized: this.isInitialized
     };
+  }
+
+  public async publish(topic: string, message: string, options: { qos?: 0 | 1 | 2, retain?: boolean } = {}): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.mqttClient || !this.mqttClient.connected) {
+        reject(new Error('MQTT client not connected'));
+        return;
+      }
+
+      this.mqttClient.publish(topic, message, {
+        qos: options.qos || 1,
+        retain: options.retain || false
+      }, (error) => {
+        if (error) {
+          console.error('MQTT publish error:', error);
+          reject(error);
+        } else {
+          console.log(`Published to ${topic}:`, message);
+          resolve();
+        }
+      });
+    });
   }
 
   public async disconnect() {

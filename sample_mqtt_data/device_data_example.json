@@ -1,0 +1,80 @@
+{
+  "device_id": "ESP32_ENGR_001",
+  "timestamp": "2024-08-23T14:30:25.123Z",
+  "measurement_interval": 15,
+  "sequence_number": 1234,
+  
+  "network_status": "online",
+  "connection_quality": 85,
+  "signal_strength": -55,
+  
+  "electrical_measurements": {
+    "voltage": 380.5,
+    "current_amperage": 45.8,
+    "power_factor": 0.88,
+    "frequency": 50.1,
+    
+    "active_power": 28450.5,
+    "reactive_power": 12250.2,
+    "apparent_power": 31038.9,
+    
+    "total_energy": 856789.245,
+    "daily_energy": 245.678
+  },
+  
+  "three_phase_measurements": {
+    "is_three_phase": true,
+    "voltage_phase_b": 379.8,
+    "voltage_phase_c": 381.2,
+    "current_phase_b": 44.2,
+    "current_phase_c": 46.5,
+    "power_factor_phase_b": 0.85,
+    "power_factor_phase_c": 0.90,
+    "active_power_phase_a": 9480.5,
+    "active_power_phase_b": 9120.8,
+    "active_power_phase_c": 9849.2
+  },
+  
+  "environmental_monitoring": {
+    "device_temperature": 35.2,
+    "ambient_temperature": null,
+    "humidity": null
+  },
+  
+  "device_health": {
+    "uptime_hours": 24,
+    "last_maintenance": null,
+    "last_data_received": "2024-08-23T14:30:25.123Z",
+    "data_collection_count": 5760,
+    "last_error_code": null,
+    "last_error_message": null,
+    "last_error_time": null,
+    "error_count_today": 0
+  },
+  
+  "meter_communication": {
+    "modbus_status": "ok",
+    "last_successful_read": "2024-08-23T14:30:20.000Z",
+    "read_attempts": 1,
+    "read_errors": 0,
+    "response_time_ms": 250,
+    "communication_errors": 0
+  },
+  
+  "energy_measurements": {
+    "total_energy_import": 856789.245,
+    "total_energy_export": 125.5,
+    "daily_energy_import": 245.678,
+    "daily_energy_export": 12.5,
+    "monthly_energy": 7356.789,
+    "peak_demand": 35500.0
+  },
+  
+  "data_quality": {
+    "measurement_confidence": 98,
+    "calibration_status": "valid",
+    "last_calibration": "2024-01-15T00:00:00.000Z",
+    "anomaly_detected": false,
+    "data_validation_passed": true
+  }
+}

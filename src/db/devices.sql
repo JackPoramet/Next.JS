@@ -1,15 +1,19 @@
--- ================================
--- DEVICES TABLES - 3 TABLE ARCHITECTURE
--- ================================
--- Architecture Overview:
--- 1. meter_prop: ข้อมูลมิเตอร์ (ข้อมูลทางเทคนิคและสเปค)
--- 2. devices_prop: ข้อมูลอุปกรณ์ที่ครอบคลุม (อุปกรณ์แต่ละตัว)
--- 3. devices_data: ข้อมูลปัจจุบันแบบ real-time (ข้อมูลล่าสุด)
+-- ================================================================
+-- NORMALIZED DATABASE SCHEMA FOR ENERGY MONITORING SYSTEM (FIXED)
+-- ================================================================
+-- Normalization Level: 3NF (Third Normal Form)
+-- Architecture: Proper normalized relationships with lookup tables
+-- Fixed Issues:
+-- 1. Removed non-existent column references
+-- 2. Fixed foreign key constraints
+-- 3. Added missing indexes
+-- 4. Corrected view definitions
+-- 5. Fixed trigger functions
+-- ================================================================
 
 -- ========================================
 -- CLEAN UP EXISTING OBJECTS (IF EXISTS)
 -- ========================================
-
 -- Drop views first (they depend on tables)
 DROP VIEW IF EXISTS devices_complete CASCADE;
 DROP VIEW IF EXISTS devices_dashboard CASCADE;
@@ -24,10 +28,22 @@ DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
 DROP FUNCTION IF EXISTS create_initial_device_data() CASCADE;
 DROP FUNCTION IF EXISTS archive_device_data() CASCADE;
 
+-- Drop triggers
+DROP TRIGGER IF EXISTS trigger_devices_prop_updated_at ON devices_prop CASCADE;
+DROP TRIGGER IF EXISTS update_devices_data_updated_at ON devices_data CASCADE;
+DROP TRIGGER IF EXISTS trigger_create_initial_device_data ON devices_prop CASCADE;
+DROP TRIGGER IF EXISTS trigger_archive_device_data ON devices_data CASCADE;
+
 -- Drop tables in correct order (child tables first)
+DROP TABLE IF EXISTS devices_history CASCADE;
 DROP TABLE IF EXISTS devices_data CASCADE;
 DROP TABLE IF EXISTS devices_prop CASCADE;
 DROP TABLE IF EXISTS meter_prop CASCADE;
+DROP TABLE IF EXISTS device_models CASCADE;
+DROP TABLE IF EXISTS manufacturers CASCADE;
+DROP TABLE IF EXISTS locations CASCADE;
+DROP TABLE IF EXISTS faculties CASCADE;
+DROP TABLE IF EXISTS power_specifications CASCADE;
 
 -- Drop ENUM types
 DROP TYPE IF EXISTS device_status_enum CASCADE;
@@ -36,164 +52,245 @@ DROP TYPE IF EXISTS meter_type_enum CASCADE;
 DROP TYPE IF EXISTS connection_type_enum CASCADE;
 DROP TYPE IF EXISTS power_phase_enum CASCADE;
 
--- สร้าง ENUM types สำหรับข้อมูลที่มีค่าจำกัด
+-- ================================
+-- CREATE ENUM TYPES
+-- ================================
 CREATE TYPE device_status_enum AS ENUM ('active', 'inactive', 'maintenance', 'error');
 CREATE TYPE network_status_enum AS ENUM ('online', 'offline', 'error');
 CREATE TYPE meter_type_enum AS ENUM ('digital', 'analog');
 CREATE TYPE connection_type_enum AS ENUM ('wifi', 'ethernet');
-CREATE TYPE power_phase_enum AS ENUM ('single', 'three'); -- เพิ่มประเภทระบบไฟฟ้า (1 เฟส, 3 เฟส)
+CREATE TYPE power_phase_enum AS ENUM ('single', 'three');
+
+-- ================================
+-- CREATE IMMUTABLE FUNCTIONS FIRST
+-- ================================
+CREATE OR REPLACE FUNCTION immutable_date_trunc_day(timestamp with time zone)
+RETURNS date AS $$
+BEGIN
+    RETURN $1::date;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION immutable_date_trunc_hour(timestamp with time zone)
+RETURNS timestamp with time zone AS $$
+BEGIN
+    RETURN date_trunc('hour', $1);
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ================================
+-- CREATE TRIGGER FUNCTION
+-- ================================
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS trigger AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ================================================================
--- TABLE 1: METER_PROP (Meter Technical Specifications)
+-- NORMALIZED LOOKUP TABLES (1NF, 2NF, 3NF)
 -- ================================================================
--- วัตถุประสงค์: เก็บข้อมูลสเปคทางเทคนิคของมิเตอร์แต่ละรุ่น
--- ใช้เป็น Master Data สำหรับรุ่นมิเตอร์ต่างๆ
 
-CREATE TABLE meter_prop (
-    -- Primary Key
-    meter_model_id VARCHAR(50) PRIMARY KEY, -- รหัสรุ่นมิเตอร์ เช่น 'SM-2000', 'AM-150'
-    
-    -- Meter Technical Information
-    model_name VARCHAR(255) NOT NULL, -- ชื่อรุ่น เช่น 'Smart Meter 2000'
-    manufacturer VARCHAR(100) NOT NULL, -- ผู้ผลิต เช่น 'PowerTech', 'Schneider'
-    meter_type meter_type_enum NOT NULL DEFAULT 'digital',
-    power_phase power_phase_enum NOT NULL DEFAULT 'single', -- ระบบไฟฟ้า (1 เฟส หรือ 3 เฟส)
-    
-    -- Electrical Specifications (สเปคทางไฟฟ้า)
-    rated_voltage DECIMAL(8,2) CHECK (rated_voltage > 0), -- แรงดันที่กำหนด (V)
-    rated_current DECIMAL(8,2) CHECK (rated_current > 0), -- กระแสที่กำหนด (A)
-    rated_power DECIMAL(10,2) CHECK (rated_power > 0), -- กำลังที่กำหนด (W)
-    accuracy_class VARCHAR(10), -- ความแม่นยำ เช่น '1.0', '0.5S'
-    frequency DECIMAL(5,2) DEFAULT 50.0, -- ความถี่ (Hz)
+-- TABLE: MANUFACTURERS (Normalized - eliminates redundancy)
+CREATE TABLE manufacturers (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    country VARCHAR(50),
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
+-- TABLE: POWER_SPECIFICATIONS (Normalized - separates power specs)
+CREATE TABLE power_specifications (
+    id SERIAL PRIMARY KEY,
+    rated_voltage DECIMAL(8, 2) NOT NULL CHECK (rated_voltage > 0),
+    rated_current DECIMAL(8, 2) NOT NULL CHECK (rated_current > 0),
+    rated_power DECIMAL(10, 2) NOT NULL CHECK (rated_power > 0),
+    power_phase power_phase_enum NOT NULL DEFAULT 'single',
+    frequency DECIMAL(5, 2) DEFAULT 50.0,
+    accuracy VARCHAR(10),
+    -- Create unique constraint for common combinations
+    CONSTRAINT unique_power_spec UNIQUE (rated_voltage, rated_current, rated_power, power_phase),
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABLE: DEVICE_MODELS (Normalized - separates device model info)
+CREATE TABLE device_models (
+    id SERIAL PRIMARY KEY,
+    model_name VARCHAR(255) NOT NULL,
+    manufacturer_id INTEGER NOT NULL,
+    supported_connections connection_type_enum[],
+    -- Create unique constraint
+    CONSTRAINT unique_device_model UNIQUE (model_name, manufacturer_id),
+    -- Foreign Keys
+    CONSTRAINT fk_device_models_manufacturer 
+        FOREIGN KEY (manufacturer_id) 
+        REFERENCES manufacturers(id) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABLE: FACULTIES (Normalized - separates faculty info)
+CREATE TABLE faculties (
+    id SERIAL PRIMARY KEY,
+    faculty_code VARCHAR(20) UNIQUE NOT NULL,
+    faculty_name VARCHAR(255) NOT NULL,
+    contact_email VARCHAR(255),
+    contact_phone VARCHAR(50),
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABLE: LOCATIONS (Normalized - hierarchical location structure)
+CREATE TABLE locations (
+    id SERIAL PRIMARY KEY,
+    faculty_id INTEGER NOT NULL,
+    building VARCHAR(100) NOT NULL,
+    floor VARCHAR(50),
+    room VARCHAR(50),
+    -- Create unique constraint for location combination
+    CONSTRAINT unique_location UNIQUE (faculty_id, building, floor, room),
+    -- Foreign Keys
+    CONSTRAINT fk_locations_faculty 
+        FOREIGN KEY (faculty_id) 
+        REFERENCES faculties(id) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ================================================================
--- TABLE 2: DEVICES_PROP (Physical Device Properties)
+-- MAIN NORMALIZED TABLES
 -- ================================================================
--- วัตถุประสงค์: เก็บข้อมูลอุปกรณ์จริงแต่ละตัวที่ติดตั้งในสถานที่จริง
--- หนึ่ง device หนึ่ง record แต่ละตัวมี serial number เฉพาะตัว
 
+-- TABLE: METER_PROP (Normalized - includes meter model information)
+CREATE TABLE meter_prop (
+    -- Primary Key
+    meter_id SERIAL PRIMARY KEY,
+    -- Meter Model Information
+    model_name VARCHAR(255) NOT NULL,
+    manufacturer_id INTEGER NOT NULL,
+    power_spec_id INTEGER NOT NULL,
+    meter_type meter_type_enum NOT NULL DEFAULT 'digital',
+    -- Additional meter properties
+    manufacture_date DATE,
+    -- Create unique constraint for model name and manufacturer
+    CONSTRAINT unique_meter_prop_model UNIQUE (model_name, manufacturer_id),
+    -- Foreign Keys
+    CONSTRAINT fk_meter_prop_manufacturer 
+        FOREIGN KEY (manufacturer_id) 
+        REFERENCES manufacturers(id) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_meter_prop_power_spec 
+        FOREIGN KEY (power_spec_id) 
+        REFERENCES power_specifications(id) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABLE: DEVICES_PROP (Normalized - references lookup tables)
 CREATE TABLE devices_prop (
     -- Primary Key
     id SERIAL PRIMARY KEY,
-    
     -- Device Identification
-    device_id VARCHAR(100) UNIQUE NOT NULL, -- รหัสอุปกรณ์เฉพาะตัว เช่น 'DEV001', 'SM-ENG-001'
-    device_name VARCHAR(255) NOT NULL, -- ชื่ออุปกรณ์ เช่น 'Smart Meter Engineering Lab 1'
-    
-    -- Reference to Meter Model
-    meter_model_id VARCHAR(50), -- อ้างอิงไปยัง meter_prop (รุ่นมิเตอร์)
-    
-    -- Physical Device Information
-    firmware_version VARCHAR(50), -- เวอร์ชันเฟิร์มแวร์ปัจจุบัน
-    hardware_revision VARCHAR(50), -- รุ่นฮาร์ดแวร์
-    
-    -- Installation Information (ข้อมูลการติดตั้ง)
-    faculty VARCHAR(100) NOT NULL, -- คณะที่ติดตั้ง
-    building VARCHAR(100), -- ตึก
-    floor VARCHAR(50), -- ชั้น
-    room VARCHAR(50), -- ห้อง
-    position TEXT, -- ตำแหน่งเฉพาะเจาะจง
-    
-    -- Network Configuration (การตั้งค่าเครือข่าย)
-    ip_address INET, -- IP Address ที่กำหนด
-    mac_address MACADDR, -- MAC Address
+    device_id VARCHAR(100) UNIQUE NOT NULL,
+    device_name VARCHAR(255) NOT NULL,
+    -- Foreign Keys to normalized tables
+    device_model_id INTEGER NOT NULL,
+    meter_id INTEGER UNIQUE NOT NULL, -- 1:1 relationship maintained
+    location_id INTEGER NOT NULL,
+    -- Installation Information
+    install_date DATE,
+    -- Network Configuration
+    ip_address INET,
+    mac_address MACADDR,
     connection_type connection_type_enum DEFAULT 'wifi',
-    
-    -- Installation & Maintenance
-    install_date DATE, -- วันที่ติดตั้ง
-    
-    -- Device Configuration (การตั้งค่าอุปกรณ์)
-    data_collection_interval INTEGER DEFAULT 60, -- ช่วงเวลาเก็บข้อมูล (วินาที)
-    sampling_rate INTEGER DEFAULT 1, -- อัตราการสุ่มข้อมูล (ครั้งต่อวินาที)
-    
+    -- Device Configuration
+    data_collection_interval INTEGER DEFAULT 60,
     -- Administrative Information
-    responsible_person VARCHAR(255), -- ผู้รับผิดชอบ
-    contact_info VARCHAR(255), -- ข้อมูลติดต่อ
-    notes TEXT, -- หมายเหตุเพิ่มเติม
-    
-    -- Current Status (สถานะปัจจุบัน)
+    responsible_person VARCHAR(255),
+    contact_info VARCHAR(255),
+    -- Current Status
     status device_status_enum NOT NULL DEFAULT 'active',
-    is_enabled BOOLEAN DEFAULT true, -- เปิด/ปิดการใช้งาน
-    
+    is_enabled BOOLEAN DEFAULT true,
+    -- Foreign Key Constraints
+    CONSTRAINT fk_devices_prop_device_model 
+        FOREIGN KEY (device_model_id) 
+        REFERENCES device_models(id) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_devices_prop_meter 
+        FOREIGN KEY (meter_id) 
+        REFERENCES meter_prop(meter_id) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_devices_prop_location 
+        FOREIGN KEY (location_id) 
+        REFERENCES locations(id) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Foreign Key Constraint
-    CONSTRAINT fk_devices_prop_meter_model 
-        FOREIGN KEY (meter_model_id) 
-        REFERENCES meter_prop(meter_model_id) 
-        ON DELETE SET NULL 
-        ON UPDATE CASCADE
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- ================================================================
--- TABLE 3: DEVICES_DATA (Real-time Current Data)
--- ================================================================
--- วัตถุประสงค์: เก็บข้อมูลปัจจุบัน/ล่าสุดของอุปกรณ์แต่ละตัว
--- อัปเดตบ่อย เก็บเฉพาะค่าล่าสุด (Latest State)
-
+-- TABLE: DEVICES_DATA (Real-time Current Data)
 CREATE TABLE devices_data (
     -- Primary Key
     id SERIAL PRIMARY KEY,
-    
     -- Foreign Key to devices_prop
     device_id VARCHAR(100) NOT NULL,
-    
-    -- Network Status (สถานะเครือข่าย)
+    -- Network Status
     network_status network_status_enum DEFAULT 'offline',
-    connection_quality INTEGER DEFAULT 0 CHECK (connection_quality BETWEEN 0 AND 100), -- % คุณภาพสัญญาณ
-    signal_strength INTEGER CHECK (signal_strength BETWEEN -120 AND 0), -- dBm
-    
-    -- Current Electrical Readings (ค่าไฟฟ้าปัจจุบัน)
-    voltage DECIMAL(8,2) CHECK (voltage >= 0), -- แรงดันไฟฟ้าเฟส A หรือค่าเฉลี่ย (V)
-    current_amperage DECIMAL(8,2) CHECK (current_amperage >= 0), -- กระแสไฟฟ้าเฟส A หรือค่าเฉลี่ย (A)
-    power_factor DECIMAL(4,3) CHECK (power_factor BETWEEN -1 AND 1), -- ตัวประกอบกำลังเฟส A หรือค่าเฉลี่ย
-    frequency DECIMAL(5,2) CHECK (frequency BETWEEN 40 AND 70), -- ความถี่ (Hz)
-    
-    -- 3-Phase Specific Readings (สำหรับระบบ 3 เฟสเท่านั้น)
-    voltage_phase_b DECIMAL(8,2) CHECK (voltage_phase_b IS NULL OR voltage_phase_b >= 0), -- แรงดันไฟฟ้าเฟส B (V)
-    voltage_phase_c DECIMAL(8,2) CHECK (voltage_phase_c IS NULL OR voltage_phase_c >= 0), -- แรงดันไฟฟ้าเฟส C (V)
-    current_phase_b DECIMAL(8,2) CHECK (current_phase_b IS NULL OR current_phase_b >= 0), -- กระแสไฟฟ้าเฟส B (A)
-    current_phase_c DECIMAL(8,2) CHECK (current_phase_c IS NULL OR current_phase_c >= 0), -- กระแสไฟฟ้าเฟส C (A)
-    power_factor_phase_b DECIMAL(4,3) CHECK (power_factor_phase_b IS NULL OR power_factor_phase_b BETWEEN -1 AND 1), -- ตัวประกอบกำลังเฟส B
-    power_factor_phase_c DECIMAL(4,3) CHECK (power_factor_phase_c IS NULL OR power_factor_phase_c BETWEEN -1 AND 1), -- ตัวประกอบกำลังเฟส C
-    
-    -- Power Measurements (การวัดกำลัง)
-    active_power DECIMAL(12,2) CHECK (active_power >= 0), -- กำลังจริงรวม (W)
-    reactive_power DECIMAL(12,2), -- กำลังรีแอกทีฟรวม (VAR)
-    apparent_power DECIMAL(12,2) CHECK (apparent_power >= 0), -- กำลังปรากฏรวม (VA)
-    
+    connection_quality INTEGER DEFAULT 0 CHECK (connection_quality BETWEEN 0 AND 100),
+    signal_strength INTEGER CHECK (signal_strength BETWEEN -120 AND 0),
+    -- Current Electrical Readings
+    voltage DECIMAL(8, 2) CHECK (voltage >= 0),
+    current_amperage DECIMAL(8, 2) CHECK (current_amperage >= 0),
+    power_factor DECIMAL(4, 3) CHECK (power_factor BETWEEN -1 AND 1),
+    frequency DECIMAL(5, 2) CHECK (frequency BETWEEN 40 AND 70),
+    -- 3-Phase Specific Readings
+    voltage_phase_b DECIMAL(8, 2) CHECK (voltage_phase_b IS NULL OR voltage_phase_b >= 0),
+    voltage_phase_c DECIMAL(8, 2) CHECK (voltage_phase_c IS NULL OR voltage_phase_c >= 0),
+    current_phase_b DECIMAL(8, 2) CHECK (current_phase_b IS NULL OR current_phase_b >= 0),
+    current_phase_c DECIMAL(8, 2) CHECK (current_phase_c IS NULL OR current_phase_c >= 0),
+    power_factor_phase_b DECIMAL(4, 3) CHECK (power_factor_phase_b IS NULL OR power_factor_phase_b BETWEEN -1 AND 1),
+    power_factor_phase_c DECIMAL(4, 3) CHECK (power_factor_phase_c IS NULL OR power_factor_phase_c BETWEEN -1 AND 1),
+    -- Power Measurements
+    active_power DECIMAL(12, 2) CHECK (active_power >= 0),
+    reactive_power DECIMAL(12, 2),
+    apparent_power DECIMAL(12, 2) CHECK (apparent_power >= 0),
     -- 3-Phase Power Measurements
-    active_power_phase_a DECIMAL(12,2) CHECK (active_power_phase_a IS NULL OR active_power_phase_a >= 0), -- กำลังจริงเฟส A (W)
-    active_power_phase_b DECIMAL(12,2) CHECK (active_power_phase_b IS NULL OR active_power_phase_b >= 0), -- กำลังจริงเฟส B (W)
-    active_power_phase_c DECIMAL(12,2) CHECK (active_power_phase_c IS NULL OR active_power_phase_c >= 0), -- กำลังจริงเฟส C (W)
-    
-    -- Environmental Monitoring (การตรวจสอบสิ่งแวดล้อม)
-    device_temperature DECIMAL(5,2) CHECK (device_temperature BETWEEN -40 AND 85), -- อุณหภูมิอุปกรณ์ (°C)
-    
-    -- Device Health Indicators (ตัวชี้วัดสุขภาพอุปกรณ์)
-    uptime_seconds BIGINT DEFAULT 0, -- เวลาการทำงาน (วินาที)
-    
-    -- Data Collection Information (ข้อมูลการเก็บข้อมูล)
-    last_data_received TIMESTAMP WITH TIME ZONE, -- เวลาที่รับข้อมูลล่าสุด
-    data_collection_count BIGINT DEFAULT 0, -- จำนวนครั้งที่เก็บข้อมูล
-    
-    -- Error Information (ข้อมูลข้อผิดพลาด)
-    last_error_code VARCHAR(50), -- รหัสข้อผิดพลาดล่าสุด
-    last_error_message TEXT, -- ข้อความข้อผิดพลาดล่าสุด
-    last_error_time TIMESTAMP WITH TIME ZONE, -- เวลาข้อผิดพลาดล่าสุด
-    error_count_today INTEGER DEFAULT 0, -- จำนวนข้อผิดพลาดวันนี้
-    
+    active_power_phase_a DECIMAL(12, 2) CHECK (active_power_phase_a IS NULL OR active_power_phase_a >= 0),
+    active_power_phase_b DECIMAL(12, 2) CHECK (active_power_phase_b IS NULL OR active_power_phase_b >= 0),
+    active_power_phase_c DECIMAL(12, 2) CHECK (active_power_phase_c IS NULL OR active_power_phase_c >= 0),
+    -- Environmental Monitoring
+    device_temperature DECIMAL(5, 2) CHECK (device_temperature BETWEEN -40 AND 85),
+    -- Energy Measurements
+    total_energy DECIMAL(15, 3) DEFAULT 0,
+    daily_energy DECIMAL(10, 3) DEFAULT 0,
+    -- Device Health Indicators
+    uptime_hours BIGINT DEFAULT 0,
+    last_maintenance TIMESTAMP WITH TIME ZONE,
+    -- Data Collection Information
+    last_data_received TIMESTAMP WITH TIME ZONE,
+    data_collection_count BIGINT DEFAULT 0,
+    -- Error Information
+    last_error_code VARCHAR(50),
+    last_error_message TEXT,
+    last_error_time TIMESTAMP WITH TIME ZONE,
+    error_count_today INTEGER DEFAULT 0,
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
     -- Foreign Key Constraint
     CONSTRAINT fk_devices_data_device_id 
         FOREIGN KEY (device_id) 
@@ -202,89 +299,75 @@ CREATE TABLE devices_data (
         ON UPDATE CASCADE
 );
 
--- ================================
--- ความแตกต่างระหว่างตารางทั้ง 3 ตาราง
--- ================================
-
-/*
-📋 สรุปความแตกต่างของตารางทั้ง 4:
-
-1. 🔧 METER_PROP (Master Data - ข้อมูลรุ่นมิเตอร์)
-   - วัตถุประสงค์: เก็บข้อมูลสเปคทางเทคนิคของรุ่นมิเตอร์
-   - ลักษณะข้อมูล: Static, Master Data
-   - ความถี่การเปลี่ยนแปลง: แทบไม่เปลี่ยน (เพิ่มเมื่อมีรุ่นใหม่)
-   - ตัวอย่าง: รุ่น SM-2000 มีสเปค 220V, 10A, ความแม่นยำ 1.0%
-   - Primary Key: meter_model_id (เช่น 'SM-2000')
-
-2. 🏗️ DEVICES_PROP (Physical Device Information - ข้อมูลอุปกรณ์จริง)
-   - วัตถุประสงค์: เก็บข้อมูลอุปกรณ์จริงแต่ละตัวที่ติดตั้ง
-   - ลักษณะข้อมูล: Semi-Static, Configuration Data
-   - ความถี่การเปลี่ยนแปลง: เปลี่ยนเป็นครั้งคราว (เมื่อย้าย/เปลี่ยนตั้งค่า)
-   - ตัวอย่าง: อุปกรณ์ DEV001 ที่คณะวิศวกรรม ห้อง 101 ใช้รุ่น SM-2000
-   - Primary Key: device_id (เช่น 'DEV001')
-
-3. ⚡ DEVICES_DATA (Real-time Current Data - ข้อมูลปัจจุบัน)
-   - วัตถุประสงค์: เก็บข้อมูล real-time/สถานะปัจจุบันของอุปกรณ์
-   - ลักษณะข้อมูล: Dynamic, Real-time Data
-   - ความถี่การเปลี่ยนแปลง: เปลี่ยนบ่อยมาก (ทุกนาที/ทุกวินาที)
-   - ตัวอย่าง: อุปกรณ์ DEV001 มีแรงดัน 220V, กระแส 5A ณ ขณะนี้
-   - ข้อมูลเฉพาะ: 1 device = 1 record (เก็บค่าล่าสุดเท่านั้น)
-
-4. 📊 DEVICES_HISTORY (Historical Time-Series Data - ข้อมูลประวัติ)
-   - วัตถุประสงค์: เก็บข้อมูลประวัติสำหรับการวิเคราะห์และรายงาน
-   - ลักษณะข้อมูล: Time-Series, Historical Data
-   - ความถี่การเปลี่ยนแปลง: เพิ่มข้อมูลใหม่ตลอดเวลา (ไม่เปลี่ยนข้อมูลเก่า)
-   - ตัวอย่าง: อุปกรณ์ DEV001 มีแรงดัน 220V เมื่อ 10:30, 221V เมื่อ 10:31
-   - ข้อมูลเฉพาะ: 1 device = หลาย records ตามเวลา
-
-💡 การใช้งานร่วมกัน:
-- meter_prop ← devices_prop: อุปกรณ์อ้างอิงรุ่นมิเตอร์
-- devices_prop ← devices_data: ข้อมูล real-time ของอุปกรณ์
-- devices_prop ← devices_history: ประวัติข้อมูลของอุปกรณ์
-- devices_data → devices_history: ข้อมูลปัจจุบันถูกเก็บเป็นประวัติ
-
-🎯 ตัวอย่างการใช้งาน:
-- ดูสเปครุ่น: SELECT * FROM meter_prop WHERE meter_model_id = 'SM-2000'
-- ดูอุปกรณ์ที่ติดตั้ง: SELECT * FROM devices_prop WHERE faculty = 'engineering'
-- ดูสถานะปัจจุบัน: SELECT * FROM devices_data WHERE device_id = 'DEV001'
-- ดูประวัติ 7 วัน: SELECT * FROM devices_history WHERE device_id = 'DEV001' AND recorded_at > NOW() - INTERVAL '7 days'
-*/
--- ================================
--- UTILITY FUNCTIONS (สร้างก่อนใช้ใน INDEX)
--- ================================
-
--- สร้าง IMMUTABLE functions สำหรับ date truncation (สำหรับใช้ใน INDEX)
-CREATE FUNCTION immutable_date_trunc_day(timestamp with time zone)
-RETURNS date AS $$
-BEGIN
-    RETURN $1::date;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
-CREATE FUNCTION immutable_date_trunc_hour(timestamp with time zone)
-RETURNS timestamp with time zone AS $$
-BEGIN
-    RETURN date_trunc('hour', $1);
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
+-- TABLE: DEVICES_HISTORY (Historical Time-Series Data)
+CREATE TABLE devices_history (
+    -- Primary Key
+    id SERIAL PRIMARY KEY,
+    -- Foreign Key to devices_prop
+    device_id VARCHAR(100) NOT NULL,
+    -- Timestamp for this historical record
+    recorded_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Current Electrical Readings
+    voltage DECIMAL(8, 2) CHECK (voltage >= 0),
+    current_amperage DECIMAL(8, 2) CHECK (current_amperage >= 0),
+    power_factor DECIMAL(4, 3) CHECK (power_factor BETWEEN -1 AND 1),
+    frequency DECIMAL(5, 2) CHECK (frequency BETWEEN 40 AND 70),
+    -- 3-Phase Specific Readings
+    voltage_phase_b DECIMAL(8, 2) CHECK (voltage_phase_b IS NULL OR voltage_phase_b >= 0),
+    voltage_phase_c DECIMAL(8, 2) CHECK (voltage_phase_c IS NULL OR voltage_phase_c >= 0),
+    current_phase_b DECIMAL(8, 2) CHECK (current_phase_b IS NULL OR current_phase_b >= 0),
+    current_phase_c DECIMAL(8, 2) CHECK (current_phase_c IS NULL OR current_phase_c >= 0),
+    power_factor_phase_b DECIMAL(4, 3) CHECK (power_factor_phase_b IS NULL OR power_factor_phase_b BETWEEN -1 AND 1),
+    power_factor_phase_c DECIMAL(4, 3) CHECK (power_factor_phase_c IS NULL OR power_factor_phase_c BETWEEN -1 AND 1),
+    -- Power Measurements
+    active_power DECIMAL(12, 2) CHECK (active_power >= 0),
+    reactive_power DECIMAL(12, 2),
+    apparent_power DECIMAL(12, 2) CHECK (apparent_power >= 0),
+    -- 3-Phase Power Measurements
+    active_power_phase_a DECIMAL(12, 2) CHECK (active_power_phase_a IS NULL OR active_power_phase_a >= 0),
+    active_power_phase_b DECIMAL(12, 2) CHECK (active_power_phase_b IS NULL OR active_power_phase_b >= 0),
+    active_power_phase_c DECIMAL(12, 2) CHECK (active_power_phase_c IS NULL OR active_power_phase_c >= 0),
+    -- Energy Measurements
+    total_energy DECIMAL(15, 3) DEFAULT 0,
+    daily_energy DECIMAL(10, 3) DEFAULT 0,
+    total_energy_import DECIMAL(15, 3) DEFAULT 0,
+    total_energy_export DECIMAL(15, 3) DEFAULT 0,
+    -- Environmental Monitoring
+    device_temperature DECIMAL(5, 2) CHECK (device_temperature BETWEEN -40 AND 85),
+    -- Connection Quality
+    connection_quality INTEGER DEFAULT 0 CHECK (connection_quality BETWEEN 0 AND 100),
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    -- Foreign Key Constraint
+    CONSTRAINT fk_devices_history_device_id 
+        FOREIGN KEY (device_id) 
+        REFERENCES devices_prop(device_id) 
+        ON DELETE CASCADE 
+        ON UPDATE CASCADE
+);
 
 -- ================================
--- IMPROVED INDEXES FOR PERFORMANCE
+-- CREATE INDEXES FOR PERFORMANCE
 -- ================================
 
--- Indexes for meter_prop table (Master Data)
-CREATE INDEX idx_meter_prop_manufacturer ON meter_prop(manufacturer);
-CREATE INDEX idx_meter_prop_meter_type ON meter_prop(meter_type);
-CREATE INDEX idx_meter_prop_rated_power ON meter_prop(rated_power);
+-- Indexes for lookup tables
+CREATE INDEX idx_manufacturers_name ON manufacturers(name);
+CREATE INDEX idx_device_models_manufacturer ON device_models(manufacturer_id);
+CREATE INDEX idx_faculties_code ON faculties(faculty_code);
+CREATE INDEX idx_locations_faculty ON locations(faculty_id);
+CREATE INDEX idx_locations_building ON locations(faculty_id, building);
 
--- Indexes for devices_prop table (Device Configuration)
+-- Indexes for main tables
+CREATE INDEX idx_meter_prop_manufacturer ON meter_prop(manufacturer_id);
+CREATE INDEX idx_meter_prop_power_spec ON meter_prop(power_spec_id);
+CREATE INDEX idx_meter_prop_model_name ON meter_prop(model_name);
+
 CREATE INDEX idx_devices_prop_device_id ON devices_prop(device_id);
-CREATE INDEX idx_devices_prop_meter_model ON devices_prop(meter_model_id);
-CREATE INDEX idx_devices_prop_faculty_building ON devices_prop(faculty, building);
-CREATE INDEX idx_devices_prop_status_enabled ON devices_prop(status, is_enabled);
-CREATE INDEX idx_devices_prop_install_date ON devices_prop(install_date);
+CREATE INDEX idx_devices_prop_meter_id ON devices_prop(meter_id);
+CREATE INDEX idx_devices_prop_device_model ON devices_prop(device_model_id);
+CREATE INDEX idx_devices_prop_location ON devices_prop(location_id);
+CREATE INDEX idx_devices_prop_status ON devices_prop(status, is_enabled);
 
--- Indexes for devices_data table (Real-time Data)
 CREATE INDEX idx_devices_data_device_id ON devices_data(device_id);
 CREATE INDEX idx_devices_data_network_status ON devices_data(network_status);
 CREATE INDEX idx_devices_data_last_data_received ON devices_data(last_data_received DESC);
@@ -293,33 +376,57 @@ CREATE INDEX idx_devices_data_active_power ON devices_data(active_power);
 CREATE INDEX idx_devices_data_device_temp ON devices_data(device_temperature);
 CREATE INDEX idx_devices_data_voltage_current ON devices_data(voltage, current_amperage);
 
+CREATE INDEX idx_devices_history_device_time ON devices_history(device_id, recorded_at DESC);
+CREATE INDEX idx_devices_history_recorded_at ON devices_history(recorded_at DESC);
+CREATE INDEX idx_devices_history_device_id ON devices_history(device_id);
+CREATE INDEX idx_devices_history_power ON devices_history(device_id, active_power, recorded_at DESC);
+
 -- ================================
--- UTILITY FUNCTIONS (CONTINUED)
+-- CREATE TRIGGERS FOR ALL TABLES
 -- ================================
 
--- สร้าง function สำหรับ update timestamp
-CREATE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- Triggers for lookup tables
+CREATE TRIGGER trigger_manufacturers_updated_at
+    BEFORE UPDATE ON manufacturers
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Trigger สำหรับ auto-update updated_at
-CREATE TRIGGER update_devices_prop_updated_at 
-    BEFORE UPDATE ON devices_prop 
-    FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER trigger_power_specifications_updated_at
+    BEFORE UPDATE ON power_specifications
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_device_models_updated_at
+    BEFORE UPDATE ON device_models
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_faculties_updated_at
+    BEFORE UPDATE ON faculties
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_locations_updated_at
+    BEFORE UPDATE ON locations
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Triggers for main tables
+CREATE TRIGGER trigger_meter_prop_updated_at
+    BEFORE UPDATE ON meter_prop
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_devices_prop_updated_at
+    BEFORE UPDATE ON devices_prop
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_devices_data_updated_at 
     BEFORE UPDATE ON devices_data 
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();
 
--- Trigger สำหรับสร้าง devices_data เมื่อเพิ่ม devices_prop ใหม่
-CREATE FUNCTION create_initial_device_data()
-RETURNS TRIGGER AS $$
+-- ================================
+-- CREATE TRIGGER FUNCTIONS
+-- ================================
+
+-- Trigger function for creating initial device data
+CREATE OR REPLACE FUNCTION create_initial_device_data()
+RETURNS trigger AS $$
 BEGIN
     INSERT INTO devices_data (device_id, network_status, created_at, updated_at)
     VALUES (NEW.device_id, 'offline', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
@@ -327,32 +434,36 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_create_initial_device_data
-    AFTER INSERT ON devices_prop
-    FOR EACH ROW
-    EXECUTE FUNCTION create_initial_device_data();
-
--- Trigger สำหรับ auto-archive ข้อมูลเก่าไปยัง history table
-CREATE FUNCTION archive_device_data()
-RETURNS TRIGGER AS $$
+-- Trigger function for archiving device data
+CREATE OR REPLACE FUNCTION archive_device_data()
+RETURNS trigger AS $$
 BEGIN
     -- Archive significant changes only
-    IF (OLD.active_power IS DISTINCT FROM NEW.active_power OR 
-        OLD.voltage IS DISTINCT FROM NEW.voltage OR
-        OLD.current_amperage IS DISTINCT FROM NEW.current_amperage) THEN
+    IF (OLD.active_power IS DISTINCT FROM NEW.active_power
+        OR OLD.voltage IS DISTINCT FROM NEW.voltage
+        OR OLD.current_amperage IS DISTINCT FROM NEW.current_amperage) THEN
         
         INSERT INTO devices_history (
             device_id, voltage, current_amperage, active_power, 
             power_factor, recorded_at
-        ) VALUES (
+        )
+        VALUES (
             NEW.device_id, NEW.voltage, NEW.current_amperage, NEW.active_power,
             NEW.power_factor, NEW.updated_at
         );
     END IF;
-    
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ================================
+-- CREATE TRIGGERS
+-- ================================
+
+CREATE TRIGGER trigger_create_initial_device_data
+    AFTER INSERT ON devices_prop
+    FOR EACH ROW
+    EXECUTE FUNCTION create_initial_device_data();
 
 CREATE TRIGGER trigger_archive_device_data
     AFTER UPDATE ON devices_data
@@ -360,143 +471,28 @@ CREATE TRIGGER trigger_archive_device_data
     EXECUTE FUNCTION archive_device_data();
 
 -- ================================
--- IMPROVED VIEWS
+-- CREATE UTILITY FUNCTIONS
 -- ================================
 
--- View รวมข้อมูลจาก 2 ตาราง (ปรับปรุง)
-CREATE VIEW devices_complete AS
-SELECT 
-    -- From devices_prop
-    dp.id as prop_id,
-    dp.device_id,
-    dp.device_name as name,
-    dp.faculty,
-    dp.building,
-    dp.meter_model_id as meter_type,
-    dp.connection_type,
-    dp.hardware_revision as device_model,
-    mp.manufacturer,
-    dp.firmware_version,
-    dp.install_date,
-    dp.status as device_status,
-    dp.is_enabled,
-    dp.notes,
-    
-    -- From devices_data
-    dd.id as data_id,
-    dd.network_status,
-    dd.connection_quality,
-    dd.signal_strength,
-    dd.voltage,
-    dd.current_amperage,
-    dd.power_factor,
-    dd.frequency,
-    dd.active_power,
-    dd.device_temperature,
-    dd.last_data_received,
-    dd.data_collection_count,
-    
-    -- Calculated fields
-    CASE 
-        WHEN dd.last_data_received > NOW() - INTERVAL '5 minutes' THEN 'recent'
-        WHEN dd.last_data_received > NOW() - INTERVAL '1 hour' THEN 'delayed' 
-        ELSE 'stale'
-    END as data_freshness,
-    
-    -- Overall health score (0-100)
-    LEAST(100, GREATEST(0, 
-        COALESCE(dd.connection_quality, 0) * 0.5 +
-        CASE WHEN dp.status = 'active' THEN 50 ELSE 0 END
-    ))::INTEGER as health_score,
-    
-    -- Timestamps
-    dp.created_at as device_created_at,
-    dp.updated_at as device_updated_at,
-    dd.updated_at as data_updated_at
-
-FROM devices_prop dp
-LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
-LEFT JOIN meter_prop mp ON dp.meter_model_id = mp.meter_model_id;
-
--- View สำหรับ dashboard (ปรับปรุง)
-CREATE VIEW devices_dashboard AS
-SELECT 
-    dp.device_id,
-    dp.device_name,
-    dp.faculty,
-    dp.building,
-    dp.status as device_status,
-    dd.network_status,
-    dd.connection_quality,
-    dd.voltage,
-    dd.active_power,
-    dd.device_temperature,
-    dd.last_data_received,
-    
-    -- Status indicators
-    CASE 
-        WHEN dd.last_data_received > NOW() - INTERVAL '5 minutes' THEN 'recent'
-        WHEN dd.last_data_received > NOW() - INTERVAL '1 hour' THEN 'delayed' 
-        ELSE 'stale'
-    END as data_freshness,
-    
-    CASE
-        WHEN dp.status = 'active' AND dd.network_status = 'online' THEN 'healthy'
-        WHEN dp.status = 'active' AND dd.network_status = 'offline' THEN 'offline'
-        WHEN dp.status = 'maintenance' THEN 'maintenance'
-        WHEN dp.status = 'error' THEN 'error'
-        ELSE 'unknown'
-    END as overall_status
-
-FROM devices_prop dp
-LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
-WHERE dp.is_enabled = true;
-
--- View สำหรับ monitoring และ alerts
-CREATE VIEW devices_monitoring AS
-SELECT 
-    dp.device_id,
-    dp.device_name,
-    dp.faculty,
-    dd.network_status,
-    dd.active_power,
-    dd.device_temperature,
-    dd.last_data_received,
-    
-    -- Alert conditions
-    CASE WHEN dd.device_temperature > 70 THEN true ELSE false END as temperature_high,
-    CASE WHEN dd.last_data_received < NOW() - INTERVAL '10 minutes' THEN true ELSE false END as data_stale,
-    
-    -- Health indicators
-    NOW() - dd.last_data_received as data_age
-
-FROM devices_prop dp
-LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
-WHERE dp.is_enabled = true AND dp.status = 'active';
-
--- ================================
--- UTILITY FUNCTIONS
--- ================================
-
--- Function สำหรับคำนวณพลังงานรวม
-CREATE FUNCTION calculate_energy_consumption(
+-- Function for calculating energy consumption
+CREATE OR REPLACE FUNCTION calculate_energy_consumption(
     device_id_param VARCHAR(100),
     start_date DATE,
     end_date DATE
 )
 RETURNS TABLE(
     device_id VARCHAR(100),
-    average_power DECIMAL(12,2),
-    peak_power DECIMAL(12,2),
+    average_power DECIMAL(12, 2),
+    peak_power DECIMAL(12, 2),
     data_points BIGINT
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         dh.device_id,
-        AVG(dh.active_power) as average_power,
-        MAX(dh.active_power) as peak_power,
-        COUNT(*) as data_points
+        AVG(dh.active_power) AS average_power,
+        MAX(dh.active_power) AS peak_power,
+        COUNT(*) AS data_points
     FROM devices_history dh
     WHERE dh.device_id = device_id_param
         AND dh.recorded_at::DATE BETWEEN start_date AND end_date
@@ -504,13 +500,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function สำหรับ cleanup ข้อมูลเก่า
-CREATE FUNCTION cleanup_old_history_data(days_to_keep INTEGER DEFAULT 365)
+-- Function for cleanup old history data
+CREATE OR REPLACE FUNCTION cleanup_old_history_data(days_to_keep INTEGER DEFAULT 365)
 RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
 BEGIN
-    DELETE FROM devices_history 
+    DELETE FROM devices_history
     WHERE recorded_at < NOW() - INTERVAL '1 day' * days_to_keep;
     
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -519,75 +515,709 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ================================
--- SAMPLE DATA FOR TESTING
+-- CREATE NORMALIZED VIEWS
 -- ================================
 
--- ข้อมูลตัวอย่างถูกย้ายไปยังไฟล์ seeds
--- See: ./seeds/meter_models.sql
+-- Complete device view with all normalized information
+CREATE VIEW devices_complete AS
+SELECT
+    -- Device identification
+    dp.id,
+    dp.device_id,
+    dp.device_name,
+    -- Location information (denormalized for ease of use)
+    f.faculty_name,
+    f.faculty_code,
+    l.building,
+    l.floor,
+    l.room,
+    -- Device model information
+    dm.model_name AS device_model_name,
+    dm_mfg.name AS device_manufacturer,
+    -- Meter information
+    mp.meter_id,
+    mp.model_name AS meter_model_name,
+    mm_mfg.name AS meter_manufacturer,
+    mp.meter_type,
+    -- Power specifications
+    ps.rated_voltage,
+    ps.rated_current,
+    ps.rated_power,
+    ps.power_phase,
+    ps.accuracy,
+    -- Device status
+    dp.status AS device_status,
+    dp.is_enabled,
+    -- Real-time data
+    dd.network_status,
+    dd.voltage,
+    dd.current_amperage,
+    dd.active_power,
+    dd.device_temperature,
+    dd.last_data_received,
+    -- Timestamps
+    dp.created_at,
+    dp.updated_at,
+    dd.updated_at AS data_updated_at
+FROM devices_prop dp
+INNER JOIN locations l ON dp.location_id = l.id
+INNER JOIN faculties f ON l.faculty_id = f.id
+INNER JOIN device_models dm ON dp.device_model_id = dm.id
+INNER JOIN manufacturers dm_mfg ON dm.manufacturer_id = dm_mfg.id
+INNER JOIN meter_prop mp ON dp.meter_id = mp.meter_id
+INNER JOIN manufacturers mm_mfg ON mp.manufacturer_id = mm_mfg.id
+INNER JOIN power_specifications ps ON mp.power_spec_id = ps.id
+LEFT JOIN devices_data dd ON dp.device_id = dd.device_id;
+
+-- Dashboard summary view (normalized)
+CREATE VIEW devices_dashboard AS
+SELECT
+    dp.device_id,
+    dp.device_name,
+    f.faculty_name,
+    l.building,
+    dm_mfg.name AS device_manufacturer,
+    dm.model_name AS device_model_name,
+    mm_mfg.name AS meter_manufacturer,
+    mp.model_name AS meter_model_name,
+    ps.power_phase,
+    dp.status,
+    dd.network_status,
+    dd.active_power,
+    dd.last_data_received,
+    -- Status indicators
+    CASE
+        WHEN dd.last_data_received > NOW() - INTERVAL '5 minutes' THEN 'recent'
+        WHEN dd.last_data_received > NOW() - INTERVAL '1 hour' THEN 'delayed'
+        ELSE 'stale'
+    END AS data_freshness,
+    CASE
+        WHEN dp.status = 'active' AND dd.network_status = 'online' THEN 'healthy'
+        WHEN dp.status = 'active' AND dd.network_status = 'offline' THEN 'offline'
+        WHEN dp.status = 'maintenance' THEN 'maintenance'
+        WHEN dp.status = 'error' THEN 'error'
+        ELSE 'unknown'
+    END AS overall_status
+FROM devices_prop dp
+INNER JOIN locations l ON dp.location_id = l.id
+INNER JOIN faculties f ON l.faculty_id = f.id
+INNER JOIN device_models dm ON dp.device_model_id = dm.id
+INNER JOIN manufacturers dm_mfg ON dm.manufacturer_id = dm_mfg.id
+INNER JOIN meter_prop mp ON dp.meter_id = mp.meter_id
+INNER JOIN manufacturers mm_mfg ON mp.manufacturer_id = mm_mfg.id
+INNER JOIN power_specifications ps ON mp.power_spec_id = ps.id
+LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
+WHERE dp.is_enabled = true;
+
+-- View for monitoring and alerts (normalized)
+CREATE VIEW devices_monitoring AS
+SELECT
+    dp.device_id,
+    dp.device_name,
+    f.faculty_name,
+    l.building,
+    dm_mfg.name AS device_manufacturer,
+    dm.model_name AS device_model_name,
+    mm_mfg.name AS meter_manufacturer,
+    mp.model_name AS meter_model_name,
+    dd.network_status,
+    dd.active_power,
+    dd.device_temperature,
+    dd.last_data_received,
+    -- Alert conditions
+    CASE
+        WHEN dd.device_temperature > 70 THEN true
+        ELSE false
+    END AS temperature_high,
+    CASE
+        WHEN dd.last_data_received < NOW() - INTERVAL '10 minutes' THEN true
+        ELSE false
+    END AS data_stale,
+    -- Health indicators
+    NOW() - dd.last_data_received AS data_age
+FROM devices_prop dp
+INNER JOIN locations l ON dp.location_id = l.id
+INNER JOIN faculties f ON l.faculty_id = f.id
+INNER JOIN device_models dm ON dp.device_model_id = dm.id
+INNER JOIN manufacturers dm_mfg ON dm.manufacturer_id = dm_mfg.id
+INNER JOIN meter_prop mp ON dp.meter_id = mp.meter_id
+INNER JOIN manufacturers mm_mfg ON mp.manufacturer_id = mm_mfg.id
+LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
+WHERE dp.is_enabled = true AND dp.status = 'active';
+
+-- ================================================================
+-- SIMPLIFIED NORMALIZED DEVICE APPROVAL SYSTEM
+-- ================================================================
+
+-- TABLE: DEVICE_APPROVAL_STATUS (Normalized status reference)
+CREATE TABLE device_approval_status (
+    id SERIAL PRIMARY KEY,
+    status_code VARCHAR(20) UNIQUE NOT NULL,
+    status_name VARCHAR(100) NOT NULL,
+    status_description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    sort_order INTEGER DEFAULT 0,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default approval statuses
+INSERT INTO device_approval_status (status_code, status_name, status_description, sort_order) VALUES
+('pending', 'Pending Approval', 'Device is waiting for admin approval', 1),
+('approved', 'Approved', 'Device has been approved and is operational', 2),
+('rejected', 'Rejected', 'Device has been rejected by admin', 3);
+
+-- TABLE: DEVICES_PENDING (อุปกรณ์ที่รออนุมัติ - เรียบง่าย)
+CREATE TABLE devices_pending (
+    -- Primary Key
+    id SERIAL PRIMARY KEY,
+    
+    -- Device Identification
+    device_id VARCHAR(100) UNIQUE NOT NULL,
+    device_name VARCHAR(255),
+    
+    -- Approval Status (Foreign Key to normalized table)
+    approval_status_id INTEGER NOT NULL DEFAULT 1, -- Default to 'pending'
+    
+    -- Device Information from MQTT Discovery
+    device_type VARCHAR(100),
+    firmware_version VARCHAR(50),
+    mac_address MACADDR,
+    ip_address INET,
+    connection_type connection_type_enum DEFAULT 'wifi',
+    
+    -- Raw MQTT Data (เก็บข้อมูลดิบจาก MQTT /prop)
+    mqtt_data JSONB NOT NULL,
+    
+    -- Discovery Information
+    discovered_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    discovery_source VARCHAR(50) DEFAULT 'mqtt',
+    
+    -- Foreign Key Constraints
+    CONSTRAINT fk_devices_pending_approval_status 
+        FOREIGN KEY (approval_status_id) 
+        REFERENCES device_approval_status(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABLE: DEVICES_REJECTED (อุปกรณ์ที่ถูกปฏิเสธ)
+CREATE TABLE devices_rejected (
+    -- Primary Key
+    id SERIAL PRIMARY KEY,
+    
+    -- Device Identification (ข้อมูลจาก devices_pending)
+    device_id VARCHAR(100) UNIQUE NOT NULL,
+    device_name VARCHAR(255),
+    device_type VARCHAR(100),
+    firmware_version VARCHAR(50),
+    mac_address MACADDR,
+    ip_address INET,
+    connection_type connection_type_enum,
+    
+    -- Approval Status (Foreign Key to normalized table)
+    approval_status_id INTEGER NOT NULL DEFAULT 3, -- Default to 'rejected'
+    
+    -- Original MQTT Data
+    original_mqtt_data JSONB,
+    
+    -- Rejection Information
+    rejected_by INTEGER NOT NULL,
+    rejection_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Original Discovery Information
+    original_discovered_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Resubmission tracking
+    can_resubmit BOOLEAN DEFAULT true,
+    resubmit_after TIMESTAMP WITH TIME ZONE,
+    resubmission_count INTEGER DEFAULT 0,
+    
+    -- Foreign Key Constraints
+    CONSTRAINT fk_devices_rejected_approval_status 
+        FOREIGN KEY (approval_status_id) 
+        REFERENCES device_approval_status(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+        
+    CONSTRAINT fk_devices_rejected_rejected_by 
+        FOREIGN KEY (rejected_by) 
+        REFERENCES users(id) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    
+    -- Constraints
+    CHECK (resubmission_count >= 0),
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Update devices_prop to include approval_status_id
+ALTER TABLE devices_prop 
+ADD COLUMN approval_status_id INTEGER DEFAULT 2; -- Default to 'approved'
+
+ALTER TABLE devices_prop
+ADD CONSTRAINT fk_devices_prop_approval_status 
+    FOREIGN KEY (approval_status_id) 
+    REFERENCES device_approval_status(id)
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- TABLE: DEVICE_APPROVAL_HISTORY (ประวัติการอนุมัติ)
+CREATE TABLE device_approval_history (
+    id SERIAL PRIMARY KEY,
+    device_id VARCHAR(100) NOT NULL,
+    action VARCHAR(50) NOT NULL, -- 'discovered', 'approved', 'rejected', 'moved_to_operational'
+    previous_status_id INTEGER,
+    new_status_id INTEGER,
+    performed_by INTEGER,
+    action_reason TEXT,
+    action_data JSONB, -- เก็บข้อมูลเพิ่มเติมของการกระทำ
+    
+    -- Foreign Keys
+    CONSTRAINT fk_device_approval_history_previous_status 
+        FOREIGN KEY (previous_status_id) 
+        REFERENCES device_approval_status(id) 
+        ON DELETE SET NULL ON UPDATE CASCADE,
+        
+    CONSTRAINT fk_device_approval_history_new_status 
+        FOREIGN KEY (new_status_id) 
+        REFERENCES device_approval_status(id) 
+        ON DELETE SET NULL ON UPDATE CASCADE,
+        
+    CONSTRAINT fk_device_approval_history_performed_by 
+        FOREIGN KEY (performed_by) 
+        REFERENCES users(id) 
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    
+    -- Timestamp
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
 -- ================================
--- ENHANCED COMMENTS & DOCUMENTATION
+-- SIMPLIFIED FUNCTIONS FOR DEVICE APPROVAL WORKFLOW
 -- ================================
 
--- Table Comments
-COMMENT ON TABLE meter_prop IS 'Master data ข้อมูลสเปคทางเทคนิคของรุ่นมิเตอร์ต่างๆ - ไม่เปลี่ยนแปลงบ่อย';
-COMMENT ON TABLE devices_prop IS 'ข้อมูลอุปกรณ์จริงแต่ละตัวที่ติดตั้งในสถานที่ - เปลี่ยนแปลงเป็นครั้งคราว';
-COMMENT ON TABLE devices_data IS 'ข้อมูล real-time/สถานะปัจจุบันของอุปกรณ์ - อัปเดตบ่อยมาก';
-COMMENT ON TABLE devices_history IS 'ข้อมูลประวัติแบบ time-series สำหรับการวิเคราะห์ - เพิ่มข้อมูลใหม่ตลอดเวลา';
+-- Function to approve device and move to devices_prop
+CREATE OR REPLACE FUNCTION approve_device(
+    p_device_id VARCHAR(100),
+    p_approved_by INTEGER,
+    p_approval_notes TEXT DEFAULT NULL,
+    p_location_id INTEGER DEFAULT NULL,
+    p_meter_id INTEGER DEFAULT NULL,
+    p_device_model_id INTEGER DEFAULT NULL
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+    pending_device RECORD;
+BEGIN
+    -- Get pending device
+    SELECT * INTO pending_device 
+    FROM devices_pending 
+    WHERE device_id = p_device_id;
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Device % not found in pending devices', p_device_id;
+    END IF;
+    
+    -- Insert into devices_prop
+    INSERT INTO devices_prop (
+        device_id,
+        device_name,
+        device_model_id,
+        meter_id,
+        location_id,
+        install_date,
+        ip_address,
+        mac_address,
+        connection_type,
+        status,
+        is_enabled,
+        approval_status_id
+    ) VALUES (
+        pending_device.device_id,
+        pending_device.device_name,
+        p_device_model_id,
+        p_meter_id,
+        p_location_id,
+        CURRENT_DATE,
+        pending_device.ip_address,
+        pending_device.mac_address,
+        pending_device.connection_type,
+        'active',
+        true,
+        2 -- 'approved' status
+    );
+    
+    -- Create initial device_data record
+    INSERT INTO devices_data (
+        device_id,
+        network_status,
+        connection_quality
+    ) VALUES (
+        pending_device.device_id,
+        'offline',
+        0
+    );
+    
+    -- Log approval history
+    INSERT INTO device_approval_history (
+        device_id,
+        action,
+        previous_status_id,
+        new_status_id,
+        performed_by,
+        action_reason,
+        action_data
+    ) VALUES (
+        p_device_id,
+        'approved',
+        1, -- 'pending' status
+        2, -- 'approved' status
+        p_approved_by,
+        p_approval_notes,
+        jsonb_build_object(
+            'approved_at', CURRENT_TIMESTAMP,
+            'moved_to_devices_prop', true,
+            'location_id', p_location_id,
+            'meter_id', p_meter_id,
+            'device_model_id', p_device_model_id
+        )
+    );
+    
+    -- Remove from pending devices
+    DELETE FROM devices_pending WHERE device_id = p_device_id;
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
 
--- Column Comments สำหรับ meter_prop
-COMMENT ON COLUMN meter_prop.meter_model_id IS 'รหัสรุ่นมิเตอร์ เช่น SM-2000, AM-150';
-COMMENT ON COLUMN meter_prop.accuracy_class IS 'ความแม่นยำของมิเตอร์ เช่น 1.0, 0.5S';
-
--- Column Comments สำหรับ devices_prop  
-COMMENT ON COLUMN devices_prop.device_id IS 'รหัสอุปกรณ์เฉพาะตัว เช่น DEV001, SM-ENG-001';
-COMMENT ON COLUMN devices_prop.meter_model_id IS 'อ้างอิงไปยังรุ่นมิเตอร์ใน meter_prop';
-COMMENT ON COLUMN devices_prop.faculty IS 'คณะที่ติดตั้งอุปกรณ์';
-COMMENT ON COLUMN devices_prop.data_collection_interval IS 'ช่วงเวลาเก็บข้อมูล (วินาที)';
-
--- Column Comments สำหรับ devices_data
-COMMENT ON COLUMN devices_data.device_id IS 'รหัสอุปกรณ์ (Foreign Key) - เก็บข้อมูลปัจจุบัน';
-COMMENT ON COLUMN devices_data.active_power IS 'กำลังจริงปัจจุบัน (W)';
-COMMENT ON COLUMN devices_data.last_data_received IS 'เวลาที่รับข้อมูลล่าสุด';
-
--- Column Comments สำหรับ devices_history
-COMMENT ON COLUMN devices_history.device_id IS 'รหัสอุปกรณ์ (Foreign Key) - เก็บข้อมูลประวัติ';
-COMMENT ON COLUMN devices_history.recorded_at IS 'เวลาที่บันทึกข้อมูลประวัติ';
-
--- View Comments (updated)
-COMMENT ON VIEW devices_complete IS 'View รวมข้อมูลครบถ้วนจาก meter_prop, devices_prop และ devices_data';
-COMMENT ON VIEW devices_dashboard IS 'View สำหรับ dashboard พร้อมสถานะและการแจ้งเตือน';
-COMMENT ON VIEW devices_monitoring IS 'View สำหรับการตรวจสอบและเฝ้าระวังระบบ';
-
--- Performance hints
-COMMENT ON INDEX idx_devices_history_device_time IS 'Index สำหรับ time-series queries - สำคัญสำหรับการวิเคราะห์ข้อมูลประวัติ';
-COMMENT ON INDEX idx_devices_data_last_data_received IS 'Index สำหรับตรวจสอบอุปกรณ์ที่ไม่ส่งข้อมูล';
-COMMENT ON INDEX idx_meter_prop_manufacturer IS 'Index สำหรับค้นหาตามผู้ผลิตมิเตอร์';
+-- Function to reject device and move to devices_rejected
+CREATE OR REPLACE FUNCTION reject_device(
+    p_device_id VARCHAR(100),
+    p_rejected_by INTEGER,
+    p_can_resubmit BOOLEAN DEFAULT true
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+    pending_device RECORD;
+BEGIN
+    -- Get pending device
+    SELECT * INTO pending_device 
+    FROM devices_pending 
+    WHERE device_id = p_device_id;
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Device % not found in pending devices', p_device_id;
+    END IF;
+    
+    -- Insert into devices_rejected
+    INSERT INTO devices_rejected (
+        device_id,
+        device_name,
+        device_type,
+        firmware_version,
+        mac_address,
+        ip_address,
+        connection_type,
+        approval_status_id,
+        original_mqtt_data,
+        rejected_by,
+        original_discovered_at,
+        can_resubmit
+    ) VALUES (
+        pending_device.device_id,
+        pending_device.device_name,
+        pending_device.device_type,
+        pending_device.firmware_version,
+        pending_device.mac_address,
+        pending_device.ip_address,
+        pending_device.connection_type,
+        3, -- 'rejected' status
+        pending_device.mqtt_data,
+        p_rejected_by,
+        pending_device.discovered_at,
+        p_can_resubmit
+    );
+    
+    -- Log rejection history
+    INSERT INTO device_approval_history (
+        device_id,
+        action,
+        previous_status_id,
+        new_status_id,
+        performed_by,
+        action_reason,
+        action_data
+    ) VALUES (
+        p_device_id,
+        'rejected',
+        1, -- 'pending' status
+        3, -- 'rejected' status
+        p_rejected_by,
+        p_rejection_reason,
+        jsonb_build_object(
+            'rejection_category', p_rejection_category,
+            'can_resubmit', p_can_resubmit,
+            'rejected_at', CURRENT_TIMESTAMP
+        )
+    );
+    
+    -- Remove from pending devices
+    DELETE FROM devices_pending WHERE device_id = p_device_id;
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ================================
--- SAMPLE DATA AND TESTING QUERIES
+-- INDEXES FOR PERFORMANCE
 -- ================================
 
--- Sample insert สำหรับทดสอบ (uncomment เพื่อใช้งาน)
-/*
--- เพิ่มข้อมูล meter models ก่อน
-INSERT INTO meter_prop (
-    meter_model_id, model_name, manufacturer, meter_type, 
-    rated_voltage, rated_current, rated_power, accuracy_class
-) VALUES 
-    ('SM001', 'Smart Meter 2000', 'PowerTech', 'digital', 220.0, 10.0, 2200.0, '1.0'),
-    ('PM001', 'Power Monitor Pro', 'Schneider', 'digital', 380.0, 16.0, 6080.0, '0.5S');
+-- device_approval_status indexes
+CREATE INDEX idx_device_approval_status_code ON device_approval_status(status_code);
+CREATE INDEX idx_device_approval_status_active ON device_approval_status(is_active) WHERE is_active = true;
 
--- เพิ่มข้อมูล devices
-INSERT INTO devices_prop (
-    device_id, device_name, faculty, building,
-    meter_model_id, connection_type
-) VALUES 
-    ('DEV001', 'Smart Meter - Engineering Lab 1', 'Engineering', 'Building A', 'SM001', 'wifi'),
-    ('DEV002', 'Power Monitor - Library', 'Liberal Arts', 'Library Building', 'PM001', 'ethernet');
+-- devices_pending indexes (simplified)
+CREATE INDEX idx_devices_pending_device_id ON devices_pending(device_id);
+CREATE INDEX idx_devices_pending_discovered_at ON devices_pending(discovered_at DESC);
+CREATE INDEX idx_devices_pending_last_seen ON devices_pending(last_seen_at DESC);
+CREATE INDEX idx_devices_pending_approval_status ON devices_pending(approval_status_id);
+CREATE INDEX idx_devices_pending_device_type ON devices_pending(device_type);
 
--- Sample queries สำหรับทดสอบ
-SELECT * FROM devices_dashboard WHERE faculty = 'Engineering';
-SELECT * FROM devices_monitoring WHERE temperature_high = true;
-SELECT * FROM calculate_energy_consumption('DEV001', '2025-01-01', '2025-01-31');
-*/
+-- GIN index for JSONB
+CREATE INDEX idx_devices_pending_mqtt_data_gin ON devices_pending USING GIN (mqtt_data);
+
+-- devices_rejected indexes
+CREATE INDEX idx_devices_rejected_device_id ON devices_rejected(device_id);
+CREATE INDEX idx_devices_rejected_rejection_date ON devices_rejected(rejection_date DESC);
+CREATE INDEX idx_devices_rejected_rejected_by ON devices_rejected(rejected_by);
+CREATE INDEX idx_devices_rejected_can_resubmit ON devices_rejected(can_resubmit) WHERE can_resubmit = true;
+
+-- device_approval_history indexes
+CREATE INDEX idx_device_approval_history_device_id ON device_approval_history(device_id);
+CREATE INDEX idx_device_approval_history_created_at ON device_approval_history(created_at DESC);
+CREATE INDEX idx_device_approval_history_action ON device_approval_history(action);
+CREATE INDEX idx_device_approval_history_performed_by ON device_approval_history(performed_by) WHERE performed_by IS NOT NULL;
+
+-- ================================
+-- TRIGGERS
+-- ================================
+
+-- Update timestamp triggers
+CREATE TRIGGER trigger_device_approval_status_updated_at
+    BEFORE UPDATE ON device_approval_status
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_devices_pending_updated_at
+    BEFORE UPDATE ON devices_pending
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_devices_rejected_updated_at
+    BEFORE UPDATE ON devices_rejected
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Auto-update last_seen_at when mqtt_data changes
+CREATE OR REPLACE FUNCTION update_device_last_seen()
+RETURNS trigger AS $$
+BEGIN
+    -- Update last_seen_at when mqtt_data is updated
+    IF OLD.mqtt_data IS DISTINCT FROM NEW.mqtt_data THEN
+        NEW.last_seen_at = CURRENT_TIMESTAMP;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_devices_pending_last_seen
+    BEFORE UPDATE ON devices_pending
+    FOR EACH ROW EXECUTE FUNCTION update_device_last_seen();
+
+-- ================================
+-- SIMPLIFIED VIEWS FOR EASY QUERYING
+-- ================================
+
+-- View: devices_pending_complete (with status information)
+CREATE VIEW devices_pending_complete AS
+SELECT
+    dp.id,
+    dp.device_id,
+    dp.device_name,
+    dp.device_type,
+    NULL as manufacturer,
+    NULL as model_name,
+    dp.firmware_version,
+    dp.mac_address,
+    dp.ip_address,
+    dp.connection_type,
+    dp.mqtt_data,
+    dp.discovered_at,
+    dp.last_seen_at,
+    dp.discovery_source,
+    
+    -- Approval Status Information
+    das.status_code,
+    das.status_name,
+    das.status_description,
+    
+    -- Status indicators
+    CASE
+        WHEN dp.last_seen_at > NOW() - INTERVAL '5 minutes' THEN 'online'
+        WHEN dp.last_seen_at > NOW() - INTERVAL '1 hour' THEN 'recent'
+        ELSE 'offline'
+    END AS device_activity_status,
+    
+    NOW() - dp.discovered_at AS time_since_discovery,
+    
+    dp.created_at,
+    dp.updated_at
+    
+FROM devices_pending dp
+INNER JOIN device_approval_status das ON dp.approval_status_id = das.id;
+
+-- View: devices_rejected_complete (with status information)
+CREATE VIEW devices_rejected_complete AS
+SELECT
+    dr.id,
+    dr.device_id,
+    dr.device_name,
+    dr.device_type,
+    NULL as manufacturer,
+    NULL as model_name,
+    dr.firmware_version,
+    dr.mac_address,
+    dr.ip_address,
+    dr.connection_type,
+    dr.original_mqtt_data,
+    
+    -- Rejection Information
+    dr.rejection_date,
+    dr.can_resubmit,
+    dr.resubmit_after,
+    dr.resubmission_count,
+    
+    -- Approval Status Information
+    das.status_code,
+    das.status_name,
+    das.status_description,
+    
+    -- Admin Information
+    u.first_name || ' ' || u.last_name AS rejected_by_name,
+    u.email AS rejected_by_email,
+    
+    -- Timing
+    dr.original_discovered_at,
+    NOW() - dr.rejection_date AS time_since_rejection,
+    
+    dr.created_at,
+    dr.updated_at
+    
+FROM devices_rejected dr
+INNER JOIN device_approval_status das ON dr.approval_status_id = das.id
+INNER JOIN users u ON dr.rejected_by = u.id;
+
+-- View: devices_all_with_status (รวมทุกอุปกรณ์ทุกสถานะ)
+CREATE VIEW devices_all_with_status AS
+SELECT 
+    'pending' as table_source,
+    dp.device_id,
+    dp.device_name,
+    dp.device_type,
+    NULL as manufacturer,
+    NULL as model_name,
+    dp.firmware_version,
+    dp.discovered_at as source_date,
+    das.status_code,
+    das.status_name,
+    NULL as rejected_by,
+    NULL as rejection_reason
+FROM devices_pending dp
+INNER JOIN device_approval_status das ON dp.approval_status_id = das.id
+
+UNION ALL
+
+SELECT 
+    'operational' as table_source,
+    d.device_id,
+    d.device_name,
+    NULL as device_type, -- เพิ่มจาก MQTT data หากต้องการ
+    NULL as manufacturer,
+    NULL as model_name,
+    NULL as firmware_version,
+    d.created_at as source_date,
+    das.status_code,
+    das.status_name,
+    NULL as rejected_by,
+    NULL as rejection_reason
+FROM devices_prop d
+INNER JOIN device_approval_status das ON d.approval_status_id = das.id
+
+UNION ALL
+
+SELECT 
+    'rejected' as table_source,
+    dr.device_id,
+    dr.device_name,
+    dr.device_type,
+    NULL as manufacturer,
+    NULL as model_name,
+    dr.firmware_version,
+    dr.rejection_date as source_date,
+    das.status_code,
+    das.status_name,
+    u.first_name || ' ' || u.last_name as rejected_by,
+    NULL as rejection_reason
+FROM devices_rejected dr
+INNER JOIN device_approval_status das ON dr.approval_status_id = das.id
+INNER JOIN users u ON dr.rejected_by = u.id
+
+ORDER BY source_date DESC;
+
+-- View: devices_pending_summary (dashboard summary)
+CREATE VIEW devices_pending_summary AS
+WITH basic_stats AS (
+    SELECT
+        COUNT(*) AS total_pending,
+        COUNT(CASE WHEN last_seen_at > NOW() - INTERVAL '1 hour' THEN 1 END) AS online_count,
+        COUNT(CASE WHEN last_seen_at <= NOW() - INTERVAL '1 hour' THEN 1 END) AS offline_count,
+        MIN(discovered_at) AS oldest_pending,
+        MAX(discovered_at) AS newest_pending
+    FROM devices_pending
+),
+device_types AS (
+    SELECT json_object_agg(
+        device_type, 
+        device_count
+    ) AS devices_by_type
+    FROM (
+        SELECT 
+            COALESCE(device_type, 'Unknown') as device_type,
+            COUNT(*) as device_count
+        FROM devices_pending
+        WHERE device_type IS NOT NULL AND device_type != ''
+        GROUP BY device_type
+    ) dt
+)
+SELECT
+    bs.total_pending,
+    bs.online_count,
+    bs.offline_count,
+    bs.oldest_pending,
+    bs.newest_pending,
+    dt.devices_by_type
+FROM basic_stats bs
+CROSS JOIN device_types dt;
+
+-- View: devices_rejected_summary
+CREATE VIEW devices_rejected_summary AS
+SELECT
+    COUNT(*) AS total_rejected,
+    COUNT(CASE WHEN can_resubmit = true THEN 1 END) AS can_resubmit_count,
+    COUNT(CASE WHEN rejection_date > NOW() - INTERVAL '30 days' THEN 1 END) AS recent_rejections
+FROM devices_rejected;
