@@ -19,7 +19,7 @@ import paho.mqtt.client as mqtt
 class VirtualDevice:
     def __init__(self):
         # Device Configuration
-        self.device_id = "ESP32_ENGR_LAB_001"
+        self.device_id = "ESP32_ENGR_LAB_003"
         self.faculty = "engineering"
         
         # MQTT Configuration  

@@ -8,8 +8,8 @@ import pool from './database';
 class CleanupService {
   private intervalId: NodeJS.Timeout | null = null;
   private isRunning = false;
-  private cleanupInterval = 30 * 1000; // รันทุก 30 วินาที
-  private deviceTimeout = 60 * 1000; // ลบอุปกรณ์ที่ไม่ส่งข้อมูลมา 1 นาที
+  private cleanupInterval = 15 * 1000; // รันทุก 15 วินาที (ตรวจสอบบ่อยขึ้น)
+  private deviceTimeout = 60 * 1000; // ลบอุปกรณ์ที่ไม่ส่งข้อมูลมาเกิน 1 นาที (60 วินาที)
 
   constructor() {
     this.start();
@@ -51,6 +51,29 @@ class CleanupService {
    */
   private async cleanupInactiveDevices() {
     try {
+      // เช็คก่อนว่ามีอุปกรณ์ที่จะถูกลบหรือไม่
+      const checkResult = await pool.query(`
+        SELECT 
+          device_id, 
+          device_name, 
+          last_seen_at,
+          EXTRACT(EPOCH FROM (NOW() - last_seen_at)) as seconds_inactive
+        FROM devices_pending 
+        WHERE last_seen_at < NOW() - INTERVAL '${this.deviceTimeout/1000} seconds'
+        ORDER BY last_seen_at ASC
+      `);
+
+      if (checkResult.rows.length === 0) {
+        console.log('🧹 No inactive devices to clean up');
+        return;
+      }
+
+      console.log(`🧹 Found ${checkResult.rows.length} devices that will be auto-deleted (inactive > ${this.deviceTimeout/1000}s):`);
+      checkResult.rows.forEach(device => {
+        const inactiveTime = Math.floor(device.seconds_inactive);
+        console.log(`   - ${device.device_id} (${device.device_name}) - inactive for ${inactiveTime}s`);
+      });
+
       // ลบอุปกรณ์ที่ last_seen_at เก่ากว่า 1 นาที
       const result = await pool.query(`
         DELETE FROM devices_pending 
@@ -59,12 +82,10 @@ class CleanupService {
       `);
 
       if (result.rows.length > 0) {
-        console.log('🧹 Cleaned up inactive devices:', result.rows.length);
+        console.log(`✅ Successfully auto-deleted ${result.rows.length} pending devices`);
         result.rows.forEach(device => {
-          console.log(`   - ${device.device_id} (${device.device_name}) - last seen: ${device.last_seen_at}`);
+          console.log(`   ✓ Removed: ${device.device_id} (${device.device_name})`);
         });
-      } else {
-        console.log('🧹 No inactive devices to clean up');
       }
 
     } catch (error) {
@@ -82,6 +103,14 @@ class CleanupService {
       deviceTimeout: this.deviceTimeout,
       nextCleanup: this.intervalId ? new Date(Date.now() + this.cleanupInterval) : null
     };
+  }
+
+  /**
+   * ตั้งค่า timeout เป็น 1 นาทีพอดี
+   */
+  public setOneMinuteTimeout() {
+    this.deviceTimeout = 60 * 1000; // 1 นาทีพอดี
+    console.log(`🧹 Set device timeout to exactly 1 minute (60 seconds)`);
   }
 
   /**

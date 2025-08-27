@@ -29,7 +29,7 @@ const getBadgeClasses = ({ variant = 'default', size = 'md', outline = false, ro
   
   // Variant styles
   const variantClasses = outline ? {
-    default: 'text-gray-700 border border-gray-300 bg-transparent',
+    default: 'text-gray-800 border border-gray-300 bg-transparent',
     primary: 'text-blue-700 border border-blue-300 bg-transparent',
     secondary: 'text-purple-700 border border-purple-300 bg-transparent',
     success: 'text-green-700 border border-green-300 bg-transparent',
@@ -37,7 +37,7 @@ const getBadgeClasses = ({ variant = 'default', size = 'md', outline = false, ro
     error: 'text-red-700 border border-red-300 bg-transparent',
     info: 'text-blue-700 border border-blue-300 bg-transparent'
   } : {
-    default: 'text-gray-700 bg-gray-100',
+    default: 'text-gray-800 bg-gray-100',
     primary: 'text-blue-700 bg-blue-100',
     secondary: 'text-purple-700 bg-purple-100',
     success: 'text-green-700 bg-green-100',
@@ -104,7 +104,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
       color: 'bg-gray-500', 
       icon: '⏸️', 
       label: label || 'Disconnected',
-      textColor: 'text-gray-700'
+      textColor: 'text-gray-800'
     },
     error: { 
       color: 'bg-red-500', 

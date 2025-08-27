@@ -1,22 +1,23 @@
-// เริ่มต้น SSE และ MQTT Service
+// เช็คสถานะ SSE และ MQTT Service (Auto-started services)
 import { getMQTTService } from '../../../lib/mqtt-service';
 import { getSSEConnectionStats } from '../../../lib/sse-service';
 
 export async function GET() {
   try {
-    // เริ่มต้น MQTT Service
-    const _mqttService = getMQTTService();
+    // เช็คสถานะ MQTT Service (ควรทำงานอัตโนมัติแล้ว)
+    const mqttService = getMQTTService();
+    const mqttStatus = mqttService.getConnectionStatus();
     
     // ดึงสถิติ SSE connections
     const sseStats = getSSEConnectionStats();
     
     return new Response(JSON.stringify({
       success: true,
-      message: 'Services started successfully',
+      message: 'Services status checked (auto-started)',
       mqtt: {
-        status: 'connected',
+        status: mqttStatus.mqtt ? 'connected' : 'connecting',
         broker: 'iot666.ddns.net:1883',
-        message: 'Connected to iot666.ddns.net'
+        message: mqttStatus.mqtt ? 'Connected to iot666.ddns.net' : 'Connecting to iot666.ddns.net...'
       },
       sse: {
         status: 'running',
@@ -26,7 +27,7 @@ export async function GET() {
       },
       services: {
         sse: 'Running on /api/sse',
-        mqtt: 'Connected to iot666.ddns.net'
+        mqtt: mqttStatus.mqtt ? 'Connected to iot666.ddns.net' : 'Auto-starting...'
       }
     }), {
       headers: { 'Content-Type': 'application/json' }

@@ -54,6 +54,13 @@ export async function POST(request: NextRequest) {
           message: 'Forced cleanup completed'
         });
 
+      case 'set_one_minute_timeout':
+        cleanupService.setOneMinuteTimeout();
+        return NextResponse.json({
+          success: true,
+          message: 'Device timeout set to exactly 1 minute (60 seconds)'
+        });
+
       case 'set_device_timeout':
         if (!deviceTimeout || deviceTimeout < 10) {
           return NextResponse.json(

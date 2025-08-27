@@ -5,15 +5,17 @@ import TableOfContents from '@/components/ui/TableOfContents';
 import { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { useAuth } from '@/store/authStore';
 import { useUsers, User } from '@/hooks/useUsers';
+import { useDevicesManagement, DeviceInfo } from '@/hooks/useDevicesManagement';
 import { userAPI, CreateUserData, UpdateUserData } from '@/lib/userAPI';
-import { FACULTY_NAMES, METER_TYPE_NAMES, STATUS_NAMES, Device } from '@/lib/deviceAPI';
-import { DeviceInfo } from '@/lib/deviceModels';
+import { FACULTY_NAMES, METER_TYPE_NAMES, STATUS_NAMES } from '@/lib/deviceAPI';
 import UserModal from '@/components/ui/UserModal';
 import ConfirmDeleteModal from '@/components/ui/ConfirmDeleteModal';
 import RealtimeDashboard from '@/components/dashboard/RealtimeDashboard';
 import SystemCheckDashboard from '@/components/dashboard/SystemCheckDashboard';
-import _NotificationBell from '@/components/ui/NotificationBell';
+import NotificationBell from '@/components/ui/NotificationBell';
 import DeviceApprovalPage from '@/app/admin/device-approval/page';
+import ResponsiblePersons from '@/components/admin/ResponsiblePersons';
+import MeterManagementPage from '@/app/admin/meter-management/page';
 
 interface MainContentProps {
   activeMenu: string;
@@ -104,22 +106,14 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
   const { user } = useAuth();
   const { users, stats, isLoading: usersLoading, error: usersError, refreshUsers } = useUsers();
   
-  // Devices system disabled
-  const devices: DeviceInfo[] = [];
-  const _deviceStats = {
-    totalDevices: 0,
-    activeDevices: 0,
-    onlineDevices: 0,
-    offlineDevices: 0,
-    errorDevices: 0,
-    devicesByFaculty: {},
-    devicesByType: {}
-  };
-  const devicesLoading = false;
-  const devicesError = null;
-  const refreshDevices = () => {
-    console.log('[INFO] MainContent - Device refresh disabled');
-  };
+  // Devices management hook
+  const { 
+    devices, 
+    stats: deviceStats, 
+    loading: devicesLoading, 
+    error: devicesError, 
+    refetch: refreshDevices 
+  } = useDevicesManagement();
   
   // Expose refreshDevices function to parent component
   useImperativeHandle(ref, () => ({
@@ -546,14 +540,6 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
                 </svg>
                 <span>Refresh</span>
               </button>
-              <button 
-                className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md hover:bg-blue-700 flex items-center justify-center space-x-2 text-sm sm:text-base"
-              >
-                <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                <span>Add New Device</span>
-              </button>
             </div>
           </div>
 
@@ -772,7 +758,6 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               device.meter_type === 'digital' ? 'bg-blue-100 text-blue-800' : 
-                              device.meter_type === 'advanced' ? 'bg-purple-100 text-purple-800' :
                               'bg-gray-100 text-gray-800'
                             }`}>
                               {METER_TYPE_NAMES[device.meter_type as keyof typeof METER_TYPE_NAMES] || device.meter_type}
@@ -885,7 +870,6 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
                             <div className="flex items-center space-x-2 mt-1">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                                 device.meter_type === 'digital' ? 'bg-blue-100 text-blue-800' : 
-                                device.meter_type === 'advanced' ? 'bg-purple-100 text-purple-800' :
                                 'bg-gray-100 text-gray-800'
                               }`}>
                                 {METER_TYPE_NAMES[device.meter_type as keyof typeof METER_TYPE_NAMES] || device.meter_type}
@@ -1388,12 +1372,12 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
           ok: response.ok
         });
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         const endTime = Date.now();
         setResponseTime(endTime - startTime);
         setResponse({
           error: true,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
           statusText: 'Network Error'
         });
       } finally {
@@ -1685,6 +1669,18 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
       return (
         <>
           {renderDeviceApproval()}
+        </>
+      );
+    case 'responsible-persons':
+      return (
+        <>
+          <ResponsiblePersons />
+        </>
+      );
+    case 'meter-management':
+      return (
+        <>
+          <MeterManagementPage />
         </>
       );
     case 'users':

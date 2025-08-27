@@ -11,20 +11,49 @@ interface NewDeviceNotification {
   firmware_version?: string;
   connection_type?: string;
   approval_status_id?: number;
-  mqtt_data?: any;
+  mqtt_data?: unknown;
   discovered_at?: string;
   last_seen_at?: string;
   discovery_source?: string;
 }
 
-interface DeviceFormData {
-  // Meter Information
-  meter_model_name: string;
-  meter_manufacturer: string;
+interface Faculty {
+  id: number;
+  faculty_code: string;
+  faculty_name: string;
+  contact_email: string;
+  contact_phone: string;
+}
+
+interface ResponsiblePerson {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  department: string;
+  position: string;
+  faculty_id: number;
+  faculty_name: string;
+  faculty_code: string;
+  is_active: boolean;
+}
+
+interface MeterOption {
+  meter_id: number;
+  model_name: string;
+  manufacturer_name: string;
   rated_voltage: number;
   rated_current: number;
   rated_power: number;
   power_phase: 'single' | 'three';
+  frequency: number;
+  accuracy?: string;
+  meter_type: 'digital' | 'analog';
+}
+
+interface DeviceFormData {
+  // Meter Information - Changed to meter selection
+  meter_id: number | '';
   
   // Location Information  
   faculty_name: string;
@@ -33,8 +62,7 @@ interface DeviceFormData {
   room: string;
   
   // Administrative Information
-  responsible_person: string;
-  contact_info: string;
+  responsible_person_id: string;
   admin_notes: string;
 }
 
@@ -44,20 +72,17 @@ export default function DeviceApprovalPage() {
   const [showApprovalForm, setShowApprovalForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
+  const [faculties, setFaculties] = useState<Faculty[]>([]);
+  const [responsiblePersons, setResponsiblePersons] = useState<ResponsiblePerson[]>([]);
+  const [availableMeters, setAvailableMeters] = useState<MeterOption[]>([]);
   
   const [formData, setFormData] = useState<DeviceFormData>({
-    meter_model_name: '',
-    meter_manufacturer: '',
-    rated_voltage: 380,
-    rated_current: 100,
-    rated_power: 75000,
-    power_phase: 'three',
+    meter_id: '',
     faculty_name: '',
     building: '',
     floor: '',
     room: '',
-    responsible_person: '',
-    contact_info: '',
+    responsible_person_id: '',
     admin_notes: ''
   });
 
@@ -80,9 +105,60 @@ export default function DeviceApprovalPage() {
     }
   };
 
+  // Fetch faculties data
+  const fetchFaculties = async () => {
+    try {
+      const response = await fetch('/api/admin/faculties');
+      const data = await response.json();
+      
+      if (data.success) {
+        setFaculties(data.data || []); // เปลี่ยนจาก data.faculties เป็น data.data
+      } else {
+        console.error('Failed to fetch faculties:', data.message);
+      }
+    } catch (error) {
+      console.error('Error fetching faculties:', error);
+    }
+  };
+
+  // Fetch responsible persons data
+  const fetchResponsiblePersons = async () => {
+    try {
+      const response = await fetch('/api/admin/responsible-persons?is_active=true');
+      const data = await response.json();
+      
+      if (data.success) {
+        setResponsiblePersons(data.data || []);
+      } else {
+        console.error('Failed to fetch responsible persons:', data.message);
+      }
+    } catch (error) {
+      console.error('Error fetching responsible persons:', error);
+    }
+  };
+
+  // Fetch available meters data
+  const fetchAvailableMeters = async () => {
+    try {
+      const response = await fetch('/api/admin/meters');
+      const data = await response.json();
+      
+      if (data.success) {
+        setAvailableMeters(data.data || []);
+      } else {
+        console.error('Failed to fetch meters:', data.message);
+      }
+    } catch (error) {
+      console.error('Error fetching meters:', error);
+    }
+  };
+
   // Initial fetch and polling
   useEffect(() => {
     fetchPendingDevices();
+    fetchFaculties();
+    fetchResponsiblePersons();
+    fetchAvailableMeters();
     
     // Refresh every 30 seconds
     const interval = setInterval(fetchPendingDevices, 30000);
@@ -106,20 +182,14 @@ export default function DeviceApprovalPage() {
     setSelectedDevice(notification);
     setShowApprovalForm(false);
     
-    // Pre-fill form with default values only (no device suggestions)
+    // Pre-fill form with default values
     setFormData({
-      meter_model_name: 'Smart Meter Pro',
-      meter_manufacturer: 'Industrial Solutions',
-      rated_voltage: 380,
-      rated_current: 100, 
-      rated_power: 75000,
-      power_phase: 'three',
+      meter_id: '',
       faculty_name: '',
       building: '',
       floor: '',
       room: '',
-      responsible_person: '',
-      contact_info: '',
+      responsible_person_id: '',
       admin_notes: ''
     });
   };
@@ -321,86 +391,46 @@ export default function DeviceApprovalPage() {
                 {/* Meter Information */}
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-4">ข้อมูลมิเตอร์</h3>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        รุ่นมิเตอร์
-                      </label>
-                      <input
-                        type="text"
-                        name="meter_model_name"
-                        value={formData.meter_model_name}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ผู้ผลิต
-                      </label>
-                      <input
-                        type="text"
-                        name="meter_manufacturer"
-                        value={formData.meter_manufacturer}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        แรงดันไฟ (V)
-                      </label>
-                      <input
-                        type="number"
-                        name="rated_voltage"
-                        value={formData.rated_voltage}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        กระแสไฟ (A)
-                      </label>
-                      <input
-                        type="number"
-                        name="rated_current"
-                        value={formData.rated_current}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        กำลังไฟ (W)
-                      </label>
-                      <input
-                        type="number"
-                        name="rated_power"
-                        value={formData.rated_power}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ระบบไฟฟ้า
+                        เลือกมิเตอร์
                       </label>
                       <select
-                        name="power_phase"
-                        value={formData.power_phase}
+                        name="meter_id"
+                        value={formData.meter_id}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
                       >
-                        <option value="single">1 เฟส</option>
-                        <option value="three">3 เฟส</option>
+                        <option value="">เลือกมิเตอร์</option>
+                        {availableMeters.map((meter) => (
+                          <option key={meter.meter_id} value={meter.meter_id}>
+                            {meter.model_name} - {meter.manufacturer_name} 
+                            ({meter.rated_voltage}V / {meter.rated_current}A / {meter.rated_power}W / {meter.power_phase === 'three' ? '3 เฟส' : '1 เฟส'})
+                          </option>
+                        ))}
                       </select>
+                      {formData.meter_id && (
+                        <div className="mt-2 p-3 bg-blue-50 rounded-md">
+                          <p className="text-sm text-blue-800">
+                            <strong>รายละเอียดมิเตอร์:</strong>
+                            {(() => {
+                              const selectedMeter = availableMeters.find(m => m.meter_id === parseInt(formData.meter_id.toString()));
+                              return selectedMeter ? (
+                                <span>
+                                  <br />รุ่น: {selectedMeter.model_name}
+                                  <br />ผู้ผลิต: {selectedMeter.manufacturer_name}
+                                  <br />สเปค: {selectedMeter.rated_voltage}V / {selectedMeter.rated_current}A / {selectedMeter.rated_power}W
+                                  <br />ระบบไฟฟ้า: {selectedMeter.power_phase === 'three' ? '3 เฟส' : '1 เฟส'}
+                                  <br />ความถี่: {selectedMeter.frequency}Hz
+                                  {selectedMeter.accuracy && <><br />ความแม่นยำ: {selectedMeter.accuracy}</>}
+                                </span>
+                              ) : null;
+                            })()}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -413,15 +443,20 @@ export default function DeviceApprovalPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         คณะ
                       </label>
-                      <input
-                        type="text"
+                      <select
                         name="faculty_name"
                         value={formData.faculty_name}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="เช่น คณะวิศวกรรมศาสตร์"
                         required
-                      />
+                      >
+                        <option value="">-- เลือกคณะ --</option>
+                        {faculties.map((faculty) => (
+                          <option key={faculty.id} value={faculty.faculty_name}>
+                            {faculty.faculty_name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -471,34 +506,39 @@ export default function DeviceApprovalPage() {
                 {/* Administrative Information */}
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-4">ข้อมูลผู้รับผิดชอบ</h3>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         ผู้รับผิดชอบ
                       </label>
-                      <input
-                        type="text"
-                        name="responsible_person"
-                        value={formData.responsible_person}
+                      <select
+                        name="responsible_person_id"
+                        value={formData.responsible_person_id}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="ชื่อ-นามสกุล"
                         required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ข้อมูลการติดต่อ
-                      </label>
-                      <input
-                        type="text"
-                        name="contact_info"
-                        value={formData.contact_info}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="เบอร์โทร หรือ อีเมล"
-                        required
-                      />
+                      >
+                        <option value="">เลือกผู้รับผิดชอบ</option>
+                        {responsiblePersons.map((person) => (
+                          <option key={person.id} value={person.id.toString()}>
+                            {person.name} - {person.position} ({person.faculty_name})
+                          </option>
+                        ))}
+                      </select>
+                      {formData.responsible_person_id && (
+                        <div className="mt-2 text-xs text-gray-600">
+                          {(() => {
+                            const selectedPerson = responsiblePersons.find(p => p.id.toString() === formData.responsible_person_id);
+                            return selectedPerson ? (
+                              <div>
+                                <p>อีเมล: {selectedPerson.email}</p>
+                                <p>โทรศัพท์: {selectedPerson.phone}</p>
+                                <p>ภาควิชา: {selectedPerson.department}</p>
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="mt-4">

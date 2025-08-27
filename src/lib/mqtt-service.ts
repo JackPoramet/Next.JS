@@ -39,7 +39,7 @@ class MQTTService {
   private async initialize() {
     try {
       const clientId = `nextjs-dashboard-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-  // log removed
+      console.log(`🔗 Initializing MQTT connection to iot666.ddns.net:1883`);
       
       // Initialize MQTT Client - เชื่อมต่อ IoT Server จริง
       this.mqttClient = mqtt.connect('mqtt://iot666.ddns.net:1883', {
@@ -59,7 +59,7 @@ class MQTTService {
       console.log('🧹 Cleanup service status:', cleanupService.getStatus());
 
       this.isInitialized = true;
-  // log removed
+      console.log('✅ MQTT Service initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize MQTT service:', error);
     }
@@ -69,7 +69,7 @@ class MQTTService {
     if (!this.mqttClient) return;
 
     this.mqttClient.on('connect', () => {
-  // log removed
+      console.log('✅ Connected to MQTT broker successfully');
       
       // Define topics to subscribe
       const topicsToSubscribe = [
@@ -90,19 +90,19 @@ class MQTTService {
         'iot/system/status'              // System-wide status
       ];
       
-  // log removed
+      console.log('📡 Subscribing to MQTT topics:', topicsToSubscribe);
       
       // Subscribe to IoT device topics
       this.mqttClient?.subscribe(topicsToSubscribe, { qos: 1 }, (err, granted) => {
         if (err) {
           console.error('❌ MQTT subscription error:', err);
         } else {
-          // log removed
+          console.log('✅ Successfully subscribed to topics:');
           granted?.forEach(grant => {
-            // log removed
+            console.log(`   - ${grant.topic} (QoS: ${grant.qos})`);
             this.subscribedTopics.push(grant.topic);
           });
-          // log removed
+          console.log(`📊 Total subscribed topics: ${this.subscribedTopics.length}`);
         }
       });
     });
@@ -112,6 +112,15 @@ class MQTTService {
         this.messageCount++;
         const data = JSON.parse(message.toString());
         
+        console.log(`📨 Received MQTT message:`, {
+          topic,
+          messageCount: this.messageCount,
+          dataPreview: {
+            device_id: data.device_id,
+            timestamp: data.timestamp
+          }
+        });
+        
         // Add timestamp if not present
         if (!data.timestamp) {
           data.timestamp = new Date().toISOString();
@@ -119,11 +128,13 @@ class MQTTService {
 
         // Handle /prop messages - บันทึกลง devices_pending table
         if (topic.includes('/prop')) {
+          console.log(`🔧 Processing /prop message for device: ${data.device_id}`);
           await this.handleDevicePropertiesMessage(data, topic);
         }
 
         // ตรวจสอบ device_id ใหม่สำหรับ data topics
         if (topic.includes('/datas') || topic.includes('/data')) {
+          console.log(`📊 Processing /data message for device: ${data.device_id}`);
           await this.checkNewDevice(data, topic);
         }
 
@@ -382,9 +393,16 @@ let mqttService: MQTTService | null = null;
 
 export function getMQTTService(): MQTTService {
   if (!mqttService) {
+    console.log('🚀 Creating new MQTT Service instance...');
     mqttService = new MQTTService();
   }
   return mqttService;
+}
+
+// Auto-start MQTT service when this module is imported
+if (typeof window === 'undefined') { // Server-side only
+  console.log('🔄 Auto-starting MQTT Service...');
+  getMQTTService();
 }
 
 export default MQTTService;

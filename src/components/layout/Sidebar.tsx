@@ -25,6 +25,8 @@ export default function Sidebar({
     // Admin-only menu items
     ...(userRole === 'admin' ? [
       { id: 'device-approval', name: 'Device Approval', icon: '✅' },
+      { id: 'responsible-persons', name: 'ผู้รับผิดชอบ', icon: '👤' },
+      { id: 'meter-management', name: 'จัดการมิเตอร์', icon: '🔧' },
     ] : []),
     { id: 'users', name: 'Users', icon: '👥' },
     { id: 'project-details', name: 'Project Details', icon: '📄' },
@@ -67,7 +69,7 @@ export default function Sidebar({
                 className={`w-full flex items-center space-x-3 px-4 py-3 text-left rounded-lg transition-colors ${
                   activeMenu === item.id
                     ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-500'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    : 'text-gray-800 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
                 <span className="text-xl">{item.icon}</span>

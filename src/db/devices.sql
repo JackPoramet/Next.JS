@@ -35,6 +35,9 @@ DROP TRIGGER IF EXISTS trigger_create_initial_device_data ON devices_prop CASCAD
 DROP TRIGGER IF EXISTS trigger_archive_device_data ON devices_data CASCADE;
 
 -- Drop tables in correct order (child tables first)
+DROP TABLE IF EXISTS device_approval_history CASCADE;
+DROP TABLE IF EXISTS devices_rejected CASCADE;
+DROP TABLE IF EXISTS devices_pending CASCADE;
 DROP TABLE IF EXISTS devices_history CASCADE;
 DROP TABLE IF EXISTS devices_data CASCADE;
 DROP TABLE IF EXISTS devices_prop CASCADE;
@@ -42,8 +45,10 @@ DROP TABLE IF EXISTS meter_prop CASCADE;
 DROP TABLE IF EXISTS device_models CASCADE;
 DROP TABLE IF EXISTS manufacturers CASCADE;
 DROP TABLE IF EXISTS locations CASCADE;
+DROP TABLE IF EXISTS responsible_persons CASCADE;
 DROP TABLE IF EXISTS faculties CASCADE;
 DROP TABLE IF EXISTS power_specifications CASCADE;
+DROP TABLE IF EXISTS device_approval_status CASCADE;
 
 -- Drop ENUM types
 DROP TYPE IF EXISTS device_status_enum CASCADE;
@@ -93,6 +98,29 @@ $$ LANGUAGE plpgsql;
 -- NORMALIZED LOOKUP TABLES (1NF, 2NF, 3NF)
 -- ================================================================
 
+-- TABLE: DEVICE_APPROVAL_STATUS (Normalized status reference) - CREATE FIRST
+CREATE TABLE device_approval_status (
+    id SERIAL PRIMARY KEY,
+    status_code VARCHAR(20) UNIQUE NOT NULL,
+    status_name VARCHAR(100) NOT NULL,
+    status_description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    sort_order INTEGER DEFAULT 0,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default approval statuses
+INSERT INTO device_approval_status (status_code, status_name, status_description, sort_order) VALUES
+('pending', 'Pending Approval', 'Device is waiting for admin approval', 1),
+('approved', 'Approved', 'Device has been approved and is operational', 2),
+('rejected', 'Rejected', 'Device has been rejected by admin', 3);
+
+-- Add table comments
+COMMENT ON TABLE device_approval_status IS 'ตารางเก็บสถานะการอนุมัติอุปกรณ์ IoT (รออนุมัติ, อนุมัติแล้ว, ปฏิเสธ)';
+
 -- TABLE: MANUFACTURERS (Normalized - eliminates redundancy)
 CREATE TABLE manufacturers (
     id SERIAL PRIMARY KEY,
@@ -102,6 +130,8 @@ CREATE TABLE manufacturers (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+COMMENT ON TABLE manufacturers IS 'ตารางเก็บข้อมูลผู้ผลิตอุปกรณ์ IoT และเครื่องวัดพลังงาน';
 
 -- TABLE: POWER_SPECIFICATIONS (Normalized - separates power specs)
 CREATE TABLE power_specifications (
@@ -118,6 +148,8 @@ CREATE TABLE power_specifications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+COMMENT ON TABLE power_specifications IS 'ตารางเก็บข้อมูลสเปคด้านไฟฟ้าของเครื่องวัดพลังงาน (แรงดัน กระแส กำลังไฟ)';
 
 -- TABLE: DEVICE_MODELS (Normalized - separates device model info)
 CREATE TABLE device_models (
@@ -137,10 +169,12 @@ CREATE TABLE device_models (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+COMMENT ON TABLE device_models IS 'ตารางเก็บข้อมูลรุ่นและโมเดลของอุปกรณ์ IoT แต่ละประเภท';
+
 -- TABLE: FACULTIES (Normalized - separates faculty info)
 CREATE TABLE faculties (
     id SERIAL PRIMARY KEY,
-    faculty_code VARCHAR(20) UNIQUE NOT NULL,
+    faculty_code VARCHAR(30) UNIQUE NOT NULL,
     faculty_name VARCHAR(255) NOT NULL,
     contact_email VARCHAR(255),
     contact_phone VARCHAR(50),
@@ -148,6 +182,53 @@ CREATE TABLE faculties (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+COMMENT ON TABLE faculties IS 'ตารางเก็บข้อมูลคณะและหน่วยงานต่างๆ ในมหาวิทยาลัย';
+
+-- ================================================================
+-- TABLE: RESPONSIBLE_PERSONS (ผู้รับผิดชอบ/ผู้ดูแลอุปกรณ์)
+-- ================================================================
+CREATE TABLE IF NOT EXISTS responsible_persons (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    department VARCHAR(100),
+    position VARCHAR(100),
+    faculty_id INTEGER REFERENCES faculties(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for performance on responsible_persons
+CREATE INDEX IF NOT EXISTS idx_responsible_persons_faculty_id ON responsible_persons(faculty_id);
+CREATE INDEX IF NOT EXISTS idx_responsible_persons_is_active ON responsible_persons(is_active);
+CREATE INDEX IF NOT EXISTS idx_responsible_persons_email ON responsible_persons(email);
+
+-- Create trigger to update updated_at timestamp for responsible_persons
+CREATE OR REPLACE FUNCTION update_responsible_persons_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER trigger_update_responsible_persons_updated_at
+    BEFORE UPDATE ON responsible_persons
+    FOR EACH ROW
+    EXECUTE FUNCTION update_responsible_persons_updated_at();
+
+-- Add comments for responsible_persons table
+COMMENT ON TABLE responsible_persons IS 'ตารางเก็บข้อมูลผู้รับผิดชอบอุปกรณ์ IoT';
+COMMENT ON COLUMN responsible_persons.name IS 'ชื่อ-นามสกุล ผู้รับผิดชอบ';
+COMMENT ON COLUMN responsible_persons.email IS 'อีเมล (ใช้เป็น unique identifier)';
+COMMENT ON COLUMN responsible_persons.phone IS 'หมายเลขโทรศัพท์';
+COMMENT ON COLUMN responsible_persons.department IS 'ภาควิชา/หน่วยงาน';
+COMMENT ON COLUMN responsible_persons.position IS 'ตำแหน่ง';
+COMMENT ON COLUMN responsible_persons.faculty_id IS 'รหัสคณะที่สังกัด';
+COMMENT ON COLUMN responsible_persons.is_active IS 'สถานะการใช้งาน';
 
 -- TABLE: LOCATIONS (Normalized - hierarchical location structure)
 CREATE TABLE locations (
@@ -167,6 +248,8 @@ CREATE TABLE locations (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+COMMENT ON TABLE locations IS 'ตารางเก็บข้อมูลตำแหน่งที่ตั้งของอุปกรณ์ (อาคาร ชั้น ห้อง)';
 
 -- ================================================================
 -- MAIN NORMALIZED TABLES
@@ -199,6 +282,8 @@ CREATE TABLE meter_prop (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+COMMENT ON TABLE meter_prop IS 'ตารางเก็บข้อมูลคุณสมบัติและสเปคของเครื่องวัดพลังงาน';
+
 -- TABLE: DEVICES_PROP (Normalized - references lookup tables)
 CREATE TABLE devices_prop (
     -- Primary Key
@@ -207,9 +292,9 @@ CREATE TABLE devices_prop (
     device_id VARCHAR(100) UNIQUE NOT NULL,
     device_name VARCHAR(255) NOT NULL,
     -- Foreign Keys to normalized tables
-    device_model_id INTEGER NOT NULL,
-    meter_id INTEGER UNIQUE NOT NULL, -- 1:1 relationship maintained
-    location_id INTEGER NOT NULL,
+    device_model_id INTEGER,
+    meter_id INTEGER UNIQUE, -- 1:1 relationship maintained
+    location_id INTEGER,
     -- Installation Information
     install_date DATE,
     -- Network Configuration
@@ -224,6 +309,13 @@ CREATE TABLE devices_prop (
     -- Current Status
     status device_status_enum NOT NULL DEFAULT 'active',
     is_enabled BOOLEAN DEFAULT true,
+    -- Approval and Responsibility
+    approval_status_id INTEGER DEFAULT 2, -- Default to 'approved'
+    responsible_person_id INTEGER,
+    -- Additional fields for MQTT data and device type
+    device_type VARCHAR(100),
+    firmware_version VARCHAR(50),
+    mqtt_data JSONB,
     -- Foreign Key Constraints
     CONSTRAINT fk_devices_prop_device_model 
         FOREIGN KEY (device_model_id) 
@@ -237,10 +329,20 @@ CREATE TABLE devices_prop (
         FOREIGN KEY (location_id) 
         REFERENCES locations(id) 
         ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_devices_prop_approval_status 
+        FOREIGN KEY (approval_status_id) 
+        REFERENCES device_approval_status(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_devices_prop_responsible_person 
+        FOREIGN KEY (responsible_person_id) 
+        REFERENCES responsible_persons(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+COMMENT ON TABLE devices_prop IS 'ตารางเก็บข้อมูลคุณสมบัติและการกำหนดค่าของอุปกรณ์ IoT แต่ละตัว';
 
 -- TABLE: DEVICES_DATA (Real-time Current Data)
 CREATE TABLE devices_data (
@@ -299,6 +401,8 @@ CREATE TABLE devices_data (
         ON UPDATE CASCADE
 );
 
+COMMENT ON TABLE devices_data IS 'ตารางเก็บข้อมูลการทำงานและค่าวัดแบบ Real-time ของอุปกรณ์ IoT';
+
 -- TABLE: DEVICES_HISTORY (Historical Time-Series Data)
 CREATE TABLE devices_history (
     -- Primary Key
@@ -346,11 +450,15 @@ CREATE TABLE devices_history (
         ON UPDATE CASCADE
 );
 
+COMMENT ON TABLE devices_history IS 'ตารางเก็บข้อมูลประวัติการทำงานและค่าวัดแบบ Time-series ของอุปกรณ์ IoT';
+
 -- ================================
 -- CREATE INDEXES FOR PERFORMANCE
 -- ================================
 
 -- Indexes for lookup tables
+CREATE INDEX idx_device_approval_status_code ON device_approval_status(status_code);
+CREATE INDEX idx_device_approval_status_active ON device_approval_status(is_active) WHERE is_active = true;
 CREATE INDEX idx_manufacturers_name ON manufacturers(name);
 CREATE INDEX idx_device_models_manufacturer ON device_models(manufacturer_id);
 CREATE INDEX idx_faculties_code ON faculties(faculty_code);
@@ -386,6 +494,10 @@ CREATE INDEX idx_devices_history_power ON devices_history(device_id, active_powe
 -- ================================
 
 -- Triggers for lookup tables
+CREATE TRIGGER trigger_device_approval_status_updated_at
+    BEFORE UPDATE ON device_approval_status
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER trigger_manufacturers_updated_at
     BEFORE UPDATE ON manufacturers
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -649,26 +761,6 @@ WHERE dp.is_enabled = true AND dp.status = 'active';
 -- SIMPLIFIED NORMALIZED DEVICE APPROVAL SYSTEM
 -- ================================================================
 
--- TABLE: DEVICE_APPROVAL_STATUS (Normalized status reference)
-CREATE TABLE device_approval_status (
-    id SERIAL PRIMARY KEY,
-    status_code VARCHAR(20) UNIQUE NOT NULL,
-    status_name VARCHAR(100) NOT NULL,
-    status_description TEXT,
-    is_active BOOLEAN DEFAULT true,
-    sort_order INTEGER DEFAULT 0,
-    
-    -- Timestamps
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Insert default approval statuses
-INSERT INTO device_approval_status (status_code, status_name, status_description, sort_order) VALUES
-('pending', 'Pending Approval', 'Device is waiting for admin approval', 1),
-('approved', 'Approved', 'Device has been approved and is operational', 2),
-('rejected', 'Rejected', 'Device has been rejected by admin', 3);
-
 -- TABLE: DEVICES_PENDING (อุปกรณ์ที่รออนุมัติ - เรียบง่าย)
 CREATE TABLE devices_pending (
     -- Primary Key
@@ -707,6 +799,8 @@ CREATE TABLE devices_pending (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+COMMENT ON TABLE devices_pending IS 'ตารางเก็บข้อมูลอุปกรณ์ IoT ที่รออนุมัติจากผู้ดูแลระบบ';
+
 -- TABLE: DEVICES_REJECTED (อุปกรณ์ที่ถูกปฏิเสธ)
 CREATE TABLE devices_rejected (
     -- Primary Key
@@ -728,8 +822,10 @@ CREATE TABLE devices_rejected (
     original_mqtt_data JSONB,
     
     -- Rejection Information
-    rejected_by INTEGER NOT NULL,
+    rejected_by_name VARCHAR(255), -- Store name instead of foreign key
+    rejected_by_email VARCHAR(255), -- Store email for reference
     rejection_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    rejection_reason TEXT,
     
     -- Original Discovery Information
     original_discovered_at TIMESTAMP WITH TIME ZONE,
@@ -744,11 +840,6 @@ CREATE TABLE devices_rejected (
         FOREIGN KEY (approval_status_id) 
         REFERENCES device_approval_status(id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
-        
-    CONSTRAINT fk_devices_rejected_rejected_by 
-        FOREIGN KEY (rejected_by) 
-        REFERENCES users(id) 
-        ON DELETE RESTRICT ON UPDATE CASCADE,
     
     -- Constraints
     CHECK (resubmission_count >= 0),
@@ -758,15 +849,10 @@ CREATE TABLE devices_rejected (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Update devices_prop to include approval_status_id
-ALTER TABLE devices_prop 
-ADD COLUMN approval_status_id INTEGER DEFAULT 2; -- Default to 'approved'
+COMMENT ON TABLE devices_rejected IS 'ตารางเก็บข้อมูลอุปกรณ์ IoT ที่ถูกปฏิเสธการอนุมัติ';
 
-ALTER TABLE devices_prop
-ADD CONSTRAINT fk_devices_prop_approval_status 
-    FOREIGN KEY (approval_status_id) 
-    REFERENCES device_approval_status(id)
-    ON DELETE RESTRICT ON UPDATE CASCADE;
+-- Update devices_prop to include approval_status_id and responsible_person_id
+-- (These columns are already defined in the CREATE TABLE statement above)
 
 -- TABLE: DEVICE_APPROVAL_HISTORY (ประวัติการอนุมัติ)
 CREATE TABLE device_approval_history (
@@ -775,7 +861,8 @@ CREATE TABLE device_approval_history (
     action VARCHAR(50) NOT NULL, -- 'discovered', 'approved', 'rejected', 'moved_to_operational'
     previous_status_id INTEGER,
     new_status_id INTEGER,
-    performed_by INTEGER,
+    performed_by_name VARCHAR(255), -- Store name instead of foreign key
+    performed_by_email VARCHAR(255), -- Store email for reference
     action_reason TEXT,
     action_data JSONB, -- เก็บข้อมูลเพิ่มเติมของการกระทำ
     
@@ -789,15 +876,12 @@ CREATE TABLE device_approval_history (
         FOREIGN KEY (new_status_id) 
         REFERENCES device_approval_status(id) 
         ON DELETE SET NULL ON UPDATE CASCADE,
-        
-    CONSTRAINT fk_device_approval_history_performed_by 
-        FOREIGN KEY (performed_by) 
-        REFERENCES users(id) 
-        ON DELETE SET NULL ON UPDATE CASCADE,
     
     -- Timestamp
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+COMMENT ON TABLE device_approval_history IS 'ตารางเก็บประวัติการอนุมัติและการปฏิเสธอุปกรณ์ IoT';
 
 -- ================================
 -- SIMPLIFIED FUNCTIONS FOR DEVICE APPROVAL WORKFLOW
@@ -806,7 +890,8 @@ CREATE TABLE device_approval_history (
 -- Function to approve device and move to devices_prop
 CREATE OR REPLACE FUNCTION approve_device(
     p_device_id VARCHAR(100),
-    p_approved_by INTEGER,
+    p_approved_by_name VARCHAR(255),
+    p_approved_by_email VARCHAR(255) DEFAULT NULL,
     p_approval_notes TEXT DEFAULT NULL,
     p_location_id INTEGER DEFAULT NULL,
     p_meter_id INTEGER DEFAULT NULL,
@@ -838,7 +923,10 @@ BEGIN
         connection_type,
         status,
         is_enabled,
-        approval_status_id
+        approval_status_id,
+        device_type,
+        firmware_version,
+        mqtt_data
     ) VALUES (
         pending_device.device_id,
         pending_device.device_name,
@@ -851,7 +939,10 @@ BEGIN
         pending_device.connection_type,
         'active',
         true,
-        2 -- 'approved' status
+        2, -- 'approved' status
+        pending_device.device_type,
+        pending_device.firmware_version,
+        pending_device.mqtt_data
     );
     
     -- Create initial device_data record
@@ -871,7 +962,8 @@ BEGIN
         action,
         previous_status_id,
         new_status_id,
-        performed_by,
+        performed_by_name,
+        performed_by_email,
         action_reason,
         action_data
     ) VALUES (
@@ -879,7 +971,8 @@ BEGIN
         'approved',
         1, -- 'pending' status
         2, -- 'approved' status
-        p_approved_by,
+        p_approved_by_name,
+        p_approved_by_email,
         p_approval_notes,
         jsonb_build_object(
             'approved_at', CURRENT_TIMESTAMP,
@@ -900,7 +993,9 @@ $$ LANGUAGE plpgsql;
 -- Function to reject device and move to devices_rejected
 CREATE OR REPLACE FUNCTION reject_device(
     p_device_id VARCHAR(100),
-    p_rejected_by INTEGER,
+    p_rejected_by_name VARCHAR(255),
+    p_rejected_by_email VARCHAR(255) DEFAULT NULL,
+    p_rejection_reason TEXT DEFAULT 'Device rejected by administrator',
     p_can_resubmit BOOLEAN DEFAULT true
 )
 RETURNS BOOLEAN AS $$
@@ -927,7 +1022,9 @@ BEGIN
         connection_type,
         approval_status_id,
         original_mqtt_data,
-        rejected_by,
+        rejected_by_name,
+        rejected_by_email,
+        rejection_reason,
         original_discovered_at,
         can_resubmit
     ) VALUES (
@@ -940,7 +1037,9 @@ BEGIN
         pending_device.connection_type,
         3, -- 'rejected' status
         pending_device.mqtt_data,
-        p_rejected_by,
+        p_rejected_by_name,
+        p_rejected_by_email,
+        p_rejection_reason,
         pending_device.discovered_at,
         p_can_resubmit
     );
@@ -951,7 +1050,8 @@ BEGIN
         action,
         previous_status_id,
         new_status_id,
-        performed_by,
+        performed_by_name,
+        performed_by_email,
         action_reason,
         action_data
     ) VALUES (
@@ -959,10 +1059,10 @@ BEGIN
         'rejected',
         1, -- 'pending' status
         3, -- 'rejected' status
-        p_rejected_by,
+        p_rejected_by_name,
+        p_rejected_by_email,
         p_rejection_reason,
         jsonb_build_object(
-            'rejection_category', p_rejection_category,
             'can_resubmit', p_can_resubmit,
             'rejected_at', CURRENT_TIMESTAMP
         )
@@ -979,9 +1079,7 @@ $$ LANGUAGE plpgsql;
 -- INDEXES FOR PERFORMANCE
 -- ================================
 
--- device_approval_status indexes
-CREATE INDEX idx_device_approval_status_code ON device_approval_status(status_code);
-CREATE INDEX idx_device_approval_status_active ON device_approval_status(is_active) WHERE is_active = true;
+-- Indexes already created above in appropriate sections
 
 -- devices_pending indexes (simplified)
 CREATE INDEX idx_devices_pending_device_id ON devices_pending(device_id);
@@ -996,23 +1094,20 @@ CREATE INDEX idx_devices_pending_mqtt_data_gin ON devices_pending USING GIN (mqt
 -- devices_rejected indexes
 CREATE INDEX idx_devices_rejected_device_id ON devices_rejected(device_id);
 CREATE INDEX idx_devices_rejected_rejection_date ON devices_rejected(rejection_date DESC);
-CREATE INDEX idx_devices_rejected_rejected_by ON devices_rejected(rejected_by);
+CREATE INDEX idx_devices_rejected_rejected_by_name ON devices_rejected(rejected_by_name);
 CREATE INDEX idx_devices_rejected_can_resubmit ON devices_rejected(can_resubmit) WHERE can_resubmit = true;
 
 -- device_approval_history indexes
 CREATE INDEX idx_device_approval_history_device_id ON device_approval_history(device_id);
 CREATE INDEX idx_device_approval_history_created_at ON device_approval_history(created_at DESC);
 CREATE INDEX idx_device_approval_history_action ON device_approval_history(action);
-CREATE INDEX idx_device_approval_history_performed_by ON device_approval_history(performed_by) WHERE performed_by IS NOT NULL;
+CREATE INDEX idx_device_approval_history_performed_by_name ON device_approval_history(performed_by_name) WHERE performed_by_name IS NOT NULL;
 
 -- ================================
 -- TRIGGERS
 -- ================================
 
--- Update timestamp triggers
-CREATE TRIGGER trigger_device_approval_status_updated_at
-    BEFORE UPDATE ON device_approval_status
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Update timestamp triggers (already created above)
 
 CREATE TRIGGER trigger_devices_pending_updated_at
     BEFORE UPDATE ON devices_pending
@@ -1098,6 +1193,7 @@ SELECT
     
     -- Rejection Information
     dr.rejection_date,
+    dr.rejection_reason,
     dr.can_resubmit,
     dr.resubmit_after,
     dr.resubmission_count,
@@ -1108,8 +1204,8 @@ SELECT
     das.status_description,
     
     -- Admin Information
-    u.first_name || ' ' || u.last_name AS rejected_by_name,
-    u.email AS rejected_by_email,
+    dr.rejected_by_name,
+    dr.rejected_by_email,
     
     -- Timing
     dr.original_discovered_at,
@@ -1119,8 +1215,7 @@ SELECT
     dr.updated_at
     
 FROM devices_rejected dr
-INNER JOIN device_approval_status das ON dr.approval_status_id = das.id
-INNER JOIN users u ON dr.rejected_by = u.id;
+INNER JOIN device_approval_status das ON dr.approval_status_id = das.id;
 
 -- View: devices_all_with_status (รวมทุกอุปกรณ์ทุกสถานะ)
 CREATE VIEW devices_all_with_status AS
@@ -1171,11 +1266,10 @@ SELECT
     dr.rejection_date as source_date,
     das.status_code,
     das.status_name,
-    u.first_name || ' ' || u.last_name as rejected_by,
-    NULL as rejection_reason
+    dr.rejected_by_name as rejected_by,
+    dr.rejection_reason
 FROM devices_rejected dr
 INNER JOIN device_approval_status das ON dr.approval_status_id = das.id
-INNER JOIN users u ON dr.rejected_by = u.id
 
 ORDER BY source_date DESC;
 
@@ -1221,3 +1315,459 @@ SELECT
     COUNT(CASE WHEN can_resubmit = true THEN 1 END) AS can_resubmit_count,
     COUNT(CASE WHEN rejection_date > NOW() - INTERVAL '30 days' THEN 1 END) AS recent_rejections
 FROM devices_rejected;
+
+-- ================================
+-- SEED DATA: FACULTIES
+-- ================================
+
+-- เพิ่มข้อมูลคณะเริ่มต้นพร้อมข้อมูลการติดต่อ
+INSERT INTO faculties (faculty_code, faculty_name, contact_email, contact_phone)
+VALUES 
+    ('institution', 'สำนักงานอธิการบดี', 'admin@university.ac.th', '053-943-001'),
+    ('engineering', 'คณะวิศวกรรมศาสตร์', 'eng@university.ac.th', '053-943-002'),
+    ('liberal_arts', 'คณะศิลปศาสตร์', 'liberal@university.ac.th', '053-943-003'),
+    ('business_administration', 'คณะบริหารธุรกิจ', 'business@university.ac.th', '053-943-004'),
+    ('architecture', 'คณะสถาปัตยกรรมศาสตร์', 'arch@university.ac.th', '053-943-005'),
+    ('industrial_education', 'คณะครุศาสตร์อุตสาหกรรม', 'industrial@university.ac.th', '053-943-006')
+ON CONFLICT (faculty_code) DO UPDATE SET
+    faculty_name = EXCLUDED.faculty_name,
+    contact_email = EXCLUDED.contact_email,
+    contact_phone = EXCLUDED.contact_phone,
+    updated_at = CURRENT_TIMESTAMP;
+
+-- ================================================================
+-- DEVICE RESPONSIBLE PERSONS INTEGRATION COMPLETED
+-- Note: All necessary columns and constraints are already defined above
+-- ================================================================
+
+-- สร้าง index เพื่อปรับปรุงประสิทธิภาพ
+CREATE INDEX IF NOT EXISTS idx_devices_prop_responsible_person_id ON devices_prop(responsible_person_id);
+
+-- เพิ่ม comment อธิบายคอลัมน์
+COMMENT ON COLUMN devices_prop.responsible_person_id IS 'ID ของผู้รับผิดชอบ/ผู้ดูแลอุปกรณ์นี้';
+
+-- อัพเดทฟังก์ชัน approve_device เพื่อรองรับ responsible_person_id (Updated version)
+CREATE OR REPLACE FUNCTION approve_device_with_responsible_person(
+    p_device_id VARCHAR(100),
+    p_approved_by_name VARCHAR(255),
+    p_approved_by_email VARCHAR(255) DEFAULT NULL,
+    p_approval_notes TEXT DEFAULT NULL,
+    p_location_id INTEGER DEFAULT NULL,
+    p_meter_id VARCHAR(50) DEFAULT NULL,
+    p_device_model_id INTEGER DEFAULT NULL,
+    p_responsible_person_id INTEGER DEFAULT NULL  -- กำหนด responsible person ในขณะอนุมัติ
+) RETURNS BOOLEAN AS $$
+DECLARE
+    pending_device RECORD;
+BEGIN
+    -- Get pending device data
+    SELECT * INTO pending_device 
+    FROM devices_pending 
+    WHERE device_id = p_device_id AND approval_status_id = 1;
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Device % not found in pending approval', p_device_id;
+    END IF;
+    
+    -- Insert into devices_prop with responsible person
+    INSERT INTO devices_prop (
+        device_id,
+        device_name,
+        device_type,
+        ip_address,
+        mac_address,
+        firmware_version,
+        connection_type,
+        location_id,
+        meter_id,
+        device_model_id,
+        responsible_person_id,  -- กำหนด responsible person ในขณะอนุมัติ
+        approval_status_id,
+        mqtt_data,
+        is_enabled,
+        status,
+        created_at,
+        updated_at
+    ) VALUES (
+        pending_device.device_id,
+        pending_device.device_name,
+        pending_device.device_type,
+        pending_device.ip_address,
+        pending_device.mac_address,
+        pending_device.firmware_version,
+        pending_device.connection_type,
+        p_location_id,
+        p_meter_id::INTEGER,
+        p_device_model_id,
+        p_responsible_person_id,  -- ใช้พารามิเตอร์ที่ระบุในขณะอนุมัติ
+        2, -- 'approved' status
+        pending_device.mqtt_data,
+        true,
+        'active',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+    );
+    
+    -- Create initial device_data record
+    INSERT INTO devices_data (
+        device_id,
+        network_status,
+        connection_quality
+    ) VALUES (
+        pending_device.device_id,
+        'offline',
+        0
+    );
+    
+    -- Log approval history with responsible person info
+    INSERT INTO device_approval_history (
+        device_id,
+        action,
+        previous_status_id,
+        new_status_id,
+        performed_by_name,
+        performed_by_email,
+        action_reason,
+        action_data
+    ) VALUES (
+        p_device_id,
+        'approved',
+        1, -- 'pending' status
+        2, -- 'approved' status
+        p_approved_by_name,
+        p_approved_by_email,
+        p_approval_notes,
+        jsonb_build_object(
+            'approved_at', CURRENT_TIMESTAMP,
+            'moved_to_devices_prop', true,
+            'location_id', p_location_id,
+            'meter_id', p_meter_id,
+            'device_model_id', p_device_model_id,
+            'responsible_person_id', p_responsible_person_id
+        )
+    );
+    
+    -- Remove from pending devices
+    DELETE FROM devices_pending WHERE device_id = p_device_id;
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ================================
+-- VIEWS AND FUNCTIONS FOR DEVICE MANAGEMENT WITH RESPONSIBLE PERSONS
+-- ================================
+
+-- สร้าง view แสดงอุปกรณ์พร้อมข้อมูลผู้ดูแล
+CREATE OR REPLACE VIEW v_devices_with_caretakers AS
+SELECT 
+    -- ข้อมูลอุปกรณ์
+    dp.device_id,
+    dp.device_name,
+    dp.device_type,
+    dp.ip_address,
+    dp.mac_address,
+    dp.firmware_version,
+    dp.connection_type,
+    dp.is_enabled,
+    dp.status as device_status,
+    dp.created_at as device_created_at,
+    dp.updated_at as device_updated_at,
+    
+    -- ข้อมูลตำแหน่งที่ตั้ง
+    CONCAT(
+        COALESCE(l.building, ''), 
+        CASE WHEN l.building IS NOT NULL AND l.floor IS NOT NULL THEN ' ชั้น ' ELSE '' END,
+        COALESCE(l.floor, ''), 
+        CASE WHEN l.room IS NOT NULL THEN ' ห้อง ' ELSE '' END,
+        COALESCE(l.room, '')
+    ) as location_name,
+    l.building,
+    l.floor,
+    l.room,
+    
+    -- ข้อมูลคณะ
+    f.faculty_name,
+    f.faculty_code,
+    f.contact_email as faculty_email,
+    f.contact_phone as faculty_phone,
+    
+    -- ข้อมูลผู้ดูแล/ผู้รับผิดชอบ
+    rp.id as caretaker_id,
+    rp.name as caretaker_name,
+    rp.email as caretaker_email,
+    rp.phone as caretaker_phone,
+    rp.department as caretaker_department,
+    rp.position as caretaker_position,
+    rp.is_active as caretaker_is_active,
+    
+    -- ข้อมูลสถานะอุปกรณ์ล่าสุด
+    dd.voltage,
+    dd.current_amperage,
+    dd.power_factor,
+    dd.frequency,
+    dd.active_power,
+    dd.reactive_power,
+    dd.apparent_power,
+    dd.network_status,
+    dd.last_data_received,
+    dd.connection_quality,
+    dd.data_collection_count
+    
+FROM devices_prop dp
+LEFT JOIN locations l ON dp.location_id = l.id
+LEFT JOIN faculties f ON l.faculty_id = f.id
+LEFT JOIN responsible_persons rp ON dp.responsible_person_id = rp.id
+LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
+WHERE dp.is_enabled = true
+ORDER BY dp.device_name;
+
+-- ฟังก์ชันค้นหาอุปกรณ์ตามผู้ดูแล
+CREATE OR REPLACE FUNCTION get_devices_by_caretaker(
+    p_responsible_person_id INTEGER
+) RETURNS TABLE (
+    device_id VARCHAR(100),
+    device_name VARCHAR(255),
+    device_type VARCHAR(100),
+    location_info TEXT,
+    faculty_name VARCHAR(255),
+    network_status VARCHAR(20),
+    last_data_received TIMESTAMP WITH TIME ZONE,
+    connection_quality INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        dp.device_id,
+        dp.device_name,
+        dp.device_type,
+        CONCAT(
+            COALESCE(l.building, ''), 
+            CASE WHEN l.building IS NOT NULL THEN ' ชั้น ' ELSE '' END,
+            COALESCE(l.floor, ''), 
+            CASE WHEN l.room IS NOT NULL THEN ' ห้อง ' ELSE '' END,
+            COALESCE(l.room, '')
+        ) as location_info,
+        f.faculty_name,
+        COALESCE(dd.network_status, 'unknown') as network_status,
+        dd.last_data_received,
+        COALESCE(dd.connection_quality, 0) as connection_quality
+    FROM devices_prop dp
+    LEFT JOIN locations l ON dp.location_id = l.id
+    LEFT JOIN faculties f ON l.faculty_id = f.id
+    LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
+    WHERE dp.responsible_person_id = p_responsible_person_id
+    AND dp.is_enabled = true
+    ORDER BY 
+        f.faculty_name,
+        l.building,
+        l.floor,
+        l.room,
+        dp.device_name;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ฟังก์ชันสถิติอุปกรณ์ต่อผู้ดูแล
+CREATE OR REPLACE FUNCTION get_caretaker_device_summary(
+    p_responsible_person_id INTEGER DEFAULT NULL
+) RETURNS TABLE (
+    caretaker_id INTEGER,
+    caretaker_name VARCHAR(255),
+    caretaker_email VARCHAR(255),
+    total_devices BIGINT,
+    online_devices BIGINT,
+    offline_devices BIGINT,
+    unknown_status_devices BIGINT,
+    avg_connection_quality NUMERIC,
+    last_activity TIMESTAMP WITH TIME ZONE
+) AS $$
+BEGIN
+    IF p_responsible_person_id IS NOT NULL THEN
+        -- สถิติของผู้ดูแลคนใดคนหนึ่ง
+        RETURN QUERY
+        SELECT 
+            rp.id as caretaker_id,
+            rp.name as caretaker_name,
+            rp.email as caretaker_email,
+            COUNT(dp.device_id) as total_devices,
+            COUNT(CASE WHEN dd.network_status = 'online' THEN 1 END) as online_devices,
+            COUNT(CASE WHEN dd.network_status = 'offline' THEN 1 END) as offline_devices,
+            COUNT(CASE WHEN dd.network_status IS NULL OR dd.network_status NOT IN ('online', 'offline') THEN 1 END) as unknown_status_devices,
+            ROUND(AVG(COALESCE(dd.connection_quality, 0)), 2) as avg_connection_quality,
+            MAX(dd.last_data_received) as last_activity
+        FROM responsible_persons rp
+        LEFT JOIN devices_prop dp ON rp.id = dp.responsible_person_id AND dp.is_enabled = true
+        LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
+        WHERE rp.id = p_responsible_person_id AND rp.is_active = true
+        GROUP BY rp.id, rp.name, rp.email;
+    ELSE
+        -- สถิติของผู้ดูแลทุกคน
+        RETURN QUERY
+        SELECT 
+            rp.id as caretaker_id,
+            rp.name as caretaker_name,
+            rp.email as caretaker_email,
+            COUNT(dp.device_id) as total_devices,
+            COUNT(CASE WHEN dd.network_status = 'online' THEN 1 END) as online_devices,
+            COUNT(CASE WHEN dd.network_status = 'offline' THEN 1 END) as offline_devices,
+            COUNT(CASE WHEN dd.network_status IS NULL OR dd.network_status NOT IN ('online', 'offline') THEN 1 END) as unknown_status_devices,
+            ROUND(AVG(COALESCE(dd.connection_quality, 0)), 2) as avg_connection_quality,
+            MAX(dd.last_data_received) as last_activity
+        FROM responsible_persons rp
+        LEFT JOIN devices_prop dp ON rp.id = dp.responsible_person_id AND dp.is_enabled = true
+        LEFT JOIN devices_data dd ON dp.device_id = dd.device_id
+        WHERE rp.is_active = true
+        GROUP BY rp.id, rp.name, rp.email
+        ORDER BY total_devices DESC, caretaker_name;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ฟังก์ชันสำหรับกำหนดผู้ดูแลอุปกรณ์
+CREATE OR REPLACE FUNCTION assign_device_caretaker(
+    p_device_id VARCHAR(100),
+    p_responsible_person_id INTEGER,
+    p_assigned_by_name VARCHAR(255) DEFAULT NULL,
+    p_assigned_by_email VARCHAR(255) DEFAULT NULL
+) RETURNS BOOLEAN AS $$
+DECLARE
+    device_exists BOOLEAN := FALSE;
+    caretaker_exists BOOLEAN := FALSE;
+BEGIN
+    -- ตรวจสอบว่าอุปกรณ์มีอยู่จริง
+    SELECT EXISTS(
+        SELECT 1 FROM devices_prop 
+        WHERE device_id = p_device_id AND is_enabled = true
+    ) INTO device_exists;
+    
+    IF NOT device_exists THEN
+        RAISE EXCEPTION 'อุปกรณ์ ID % ไม่พบหรือไม่ได้เปิดใช้งาน', p_device_id;
+    END IF;
+    
+    -- ตรวจสอบว่าผู้ดูแลมีอยู่จริงและยังใช้งานอยู่
+    SELECT EXISTS(
+        SELECT 1 FROM responsible_persons 
+        WHERE id = p_responsible_person_id AND is_active = true
+    ) INTO caretaker_exists;
+    
+    IF NOT caretaker_exists THEN
+        RAISE EXCEPTION 'ผู้ดูแล ID % ไม่พบหรือไม่ได้เปิดใช้งาน', p_responsible_person_id;
+    END IF;
+    
+    -- อัพเดทผู้ดูแลอุปกรณ์
+    UPDATE devices_prop 
+    SET 
+        responsible_person_id = p_responsible_person_id,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE device_id = p_device_id;
+    
+    -- บันทึก log การเปลี่ยนแปลง (ถ้ามีตาราง device_approval_history)
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'device_approval_history') THEN
+        INSERT INTO device_approval_history (
+            device_id,
+            action,
+            performed_by_name,
+            performed_by_email,
+            action_reason,
+            action_data
+        ) VALUES (
+            p_device_id,
+            'caretaker_assigned',
+            p_assigned_by_name,
+            p_assigned_by_email,
+            'กำหนดผู้ดูแลอุปกรณ์',
+            jsonb_build_object(
+                'responsible_person_id', p_responsible_person_id,
+                'assigned_at', CURRENT_TIMESTAMP
+            )
+        );
+    END IF;
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ฟังก์ชันสำหรับการลบการมอบหมายผู้ดูแล
+CREATE OR REPLACE FUNCTION unassign_device_caretaker(
+    p_device_id VARCHAR(100),
+    p_unassigned_by_name VARCHAR(255) DEFAULT NULL,
+    p_unassigned_by_email VARCHAR(255) DEFAULT NULL,
+    p_reason TEXT DEFAULT 'ยกเลิกการมอบหมายผู้ดูแล'
+) RETURNS BOOLEAN AS $$
+DECLARE
+    current_caretaker_id INTEGER;
+BEGIN
+    -- ดึงข้อมูลผู้ดูแลปัจจุบัน
+    SELECT responsible_person_id INTO current_caretaker_id
+    FROM devices_prop 
+    WHERE device_id = p_device_id AND is_enabled = true;
+    
+    IF current_caretaker_id IS NULL THEN
+        RAISE NOTICE 'อุปกรณ์ % ไม่มีผู้ดูแลที่ถูกมอบหมาย', p_device_id;
+        RETURN FALSE;
+    END IF;
+    
+    -- ลบการมอบหมาย
+    UPDATE devices_prop 
+    SET 
+        responsible_person_id = NULL,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE device_id = p_device_id;
+    
+    -- บันทึก log การเปลี่ยนแปลง
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'device_approval_history') THEN
+        INSERT INTO device_approval_history (
+            device_id,
+            action,
+            performed_by_name,
+            performed_by_email,
+            action_reason,
+            action_data
+        ) VALUES (
+            p_device_id,
+            'caretaker_unassigned',
+            p_unassigned_by_name,
+            p_unassigned_by_email,
+            p_reason,
+            jsonb_build_object(
+                'previous_responsible_person_id', current_caretaker_id,
+                'unassigned_at', CURRENT_TIMESTAMP
+            )
+        );
+    END IF;
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- เพิ่ม comments สำหรับ views และ functions
+COMMENT ON VIEW v_devices_with_caretakers IS 'View แสดงข้อมูลอุปกรณ์ทั้งหมดพร้อมข้อมูลผู้ดูแล/ผู้รับผิดชอบ';
+COMMENT ON FUNCTION assign_device_caretaker IS 'ฟังก์ชันสำหรับมอบหมายผู้ดูแลให้กับอุปกรณ์';
+COMMENT ON FUNCTION unassign_device_caretaker IS 'ฟังก์ชันสำหรับยกเลิกการมอบหมายผู้ดูแลอุปกรณ์';
+COMMENT ON FUNCTION get_devices_by_caretaker IS 'ฟังก์ชันค้นหาอุปกรณ์ที่อยู่ภายใต้การดูแลของผู้รับผิดชอบ';
+COMMENT ON FUNCTION get_caretaker_device_summary IS 'ฟังก์ชันสรุปสถิติอุปกรณ์ของผู้ดูแลแต่ละคน';
+
+-- ================================================================
+-- TABLE COMMENTS SUMMARY
+-- ================================================================
+/*
+ตารางทั้งหมดในระบบจัดการพลังงาน IoT:
+
+1. device_approval_status - ตารางเก็บสถานะการอนุมัติอุปกรณ์ IoT (รออนุมัติ, อนุมัติแล้ว, ปฏิเสธ)
+2. manufacturers - ตารางเก็บข้อมูลผู้ผลิตอุปกรณ์ IoT และเครื่องวัดพลังงาน
+3. power_specifications - ตารางเก็บข้อมูลสเปคด้านไฟฟ้าของเครื่องวัดพลังงาน (แรงดัน กระแส กำลังไฟ)
+4. device_models - ตารางเก็บข้อมูลรุ่นและโมเดลของอุปกรณ์ IoT แต่ละประเภท
+5. faculties - ตารางเก็บข้อมูลคณะและหน่วยงานต่างๆ ในมหาวิทยาลัย
+6. responsible_persons - ตารางเก็บข้อมูลผู้รับผิดชอบอุปกรณ์ IoT
+7. locations - ตารางเก็บข้อมูลตำแหน่งที่ตั้งของอุปกรณ์ (อาคาร ชั้น ห้อง)
+8. meter_prop - ตารางเก็บข้อมูลคุณสมบัติและสเปคของเครื่องวัดพลังงาน
+9. devices_prop - ตารางเก็บข้อมูลคุณสมบัติและการกำหนดค่าของอุปกรณ์ IoT แต่ละตัว
+10. devices_data - ตารางเก็บข้อมูลการทำงานและค่าวัดแบบ Real-time ของอุปกรณ์ IoT
+11. devices_history - ตารางเก็บข้อมูลประวัติการทำงานและค่าวัดแบบ Time-series ของอุปกรณ์ IoT
+12. devices_pending - ตารางเก็บข้อมูลอุปกรณ์ IoT ที่รออนุมัติจากผู้ดูแลระบบ
+13. devices_rejected - ตารางเก็บข้อมูลอุปกรณ์ IoT ที่ถูกปฏิเสธการอนุมัติ
+14. device_approval_history - ตารางเก็บประวัติการอนุมัติและการปฏิเสธอุปกรณ์ IoT
+
+ระบบฐานข้อมูลนี้ออกแบบให้รองรับการจัดการอุปกรณ์ IoT สำหรับติดตามการใช้พลังงาน
+ในระดับมหาวิทยาลัย โดยมีระบบอนุมัติ การจัดการผู้รับผิดชอบ และการเก็บข้อมูลแบบ Real-time
+*/

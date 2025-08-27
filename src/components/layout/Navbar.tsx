@@ -32,7 +32,7 @@ export default function Navbar({
           {/* Right Section */}
           <div className="flex items-center space-x-4">
             {/* User Info */}
-            <span className="text-gray-700 hidden sm:block">
+            <span className="text-gray-800 hidden sm:block">
               สวัสดี, <span className="font-medium">{userEmail}</span>
             </span>
             
