@@ -13,20 +13,74 @@ import json
 import time
 import random
 import threading
+import os
 from datetime import datetime, timezone
 import paho.mqtt.client as mqtt
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+class VirtualDevice:
+        """บันทึก config ลงไฟล์"""
+        try:
+            config_data = {
+                "saved_timestamp": datetime.now(timezone.utc).isoformat(),
+                "device_id": self.device_id,
+                "config": config
+            }
+            
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, indent=2, ensure_ascii=False)
+            
+            print(f"✅ Config บันทึกแล้ว: {self.config_file}")
+            
+        except Exception as e:
+            print(f"❌ ไม่สามารถบันทึก config: {e}")
+
+    def load_config_from_file(self):
+        """โหลด config จากไฟล์ (ถ้ามี)"""
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    config_data = json.load(f)
+                
+                self.device_config = config_data.get('config')
+                if self.device_config:
+                    self.is_registered = True
+                    print(f"📂 โหลด config จากไฟล์: {self.config_file}")
+                    print(f"💾 บันทึกเมื่อ: {config_data.get('saved_timestamp')}")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"❌ ไม่สามารถโหลด config: {e}")
+            return False
+
+if __name__ == "__main__": json
+import time
+import random
+import threading
+import os
+from datetime import datetime, timezone
+import paho.mqtt.client as mqtt
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class VirtualDevice:
     def __init__(self):
         # Device Configuration
-        self.device_id = "ESP32_ENGR_LAB_003"
-        self.faculty = "engineering"
+        self.device_id = os.getenv("DEVICE_ID", "ESP32_ENGR_LAB_001")
+        self.faculty = os.getenv("FACULTY", "engineering")
         
-        # MQTT Configuration  
-        self.broker_host = "iot666.ddns.net"
-        self.broker_port = 1883
-        self.username = "electric_energy"
-        self.password = "electric_energy"
+        # MQTT Configuration
+        self.broker_host = os.getenv("MQTT_BROKER_HOST", "iot666.ddns.net")
+        self.broker_port = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+        self.username = os.getenv("MQTT_USERNAME", "electric_energy")
+        self.password = os.getenv("MQTT_PASSWORD", "electric_energy")
         
         # Topics
         self.prop_topic = f"devices/{self.faculty}/{self.device_id}/prop"
@@ -36,13 +90,19 @@ class VirtualDevice:
         # Device State
         self.is_registered = False
         self.device_config = None
-        self.data_interval = 15  # seconds
+        self.data_interval = int(os.getenv("DATA_INTERVAL", "15"))  # seconds
+        
+        # Config file path
+        self.config_file = f"{self.device_id}_config.json"
         
         # MQTT Client
         self.client = mqtt.Client()
         self.client.username_pw_set(self.username, self.password)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
+        
+        # Load existing config if available
+        self.load_config_from_file()
         
         # Threads
         self.prop_thread = None
@@ -82,10 +142,14 @@ class VirtualDevice:
         self.device_config = config
         self.is_registered = True
         
+        # Save config to file
+        self.save_config_to_file(config)
+        
         print("\n🎉 อุปกรณ์ได้รับการอนุมัติแล้ว!")
-        print(f"📍 ตำแหน่ง: {config.get('building', 'N/A')} ชั้น {config.get('floor', 'N/A')}")
-        print(f"⚡ กำลังไฟ: {config.get('rated_power', 0)/1000:.1f} kW")
-        print(f"🔧 มิเตอร์: {config.get('meter_model_name', 'N/A')}")
+        print(f"📍 ตำแหน่ง: {config.get('assigned_location', {}).get('building', 'N/A')} ชั้น {config.get('assigned_location', {}).get('floor', 'N/A')}")
+        print(f"⚡ กำลังไฟ: {config.get('assigned_meter', {}).get('power_specifications', {}).get('rated_power', 0)/1000:.1f} kW")
+        print(f"🔧 มิเตอร์: {config.get('assigned_meter', {}).get('meter_model', 'N/A')}")
+        print(f"💾 Config ถูกบันทึกในไฟล์: {self.config_file}")
         
         # Stop prop phase, start data phase
         self.stop_prop_phase()
@@ -93,7 +157,7 @@ class VirtualDevice:
 
     def start_prop_phase(self):
         """Phase 1: ส่งข้อมูล device properties (ยังไม่ลงทะเบียน)"""
-        print(f"\n🔄 เริ่ม Phase 1: ส่ง Device Properties")
+        print("\n🔄 เริ่ม Phase 1: ส่ง Device Properties")
         print(f"📡 Topic: {self.prop_topic}")
         
         def send_prop():
@@ -120,7 +184,7 @@ class VirtualDevice:
 
     def start_data_phase(self):
         """Phase 2: ส่งข้อมูลการใช้ไฟฟ้าจริง (ลงทะเบียนแล้ว)"""
-        print(f"\n🔄 เริ่ม Phase 2: ส่ง Data จริง")
+        print("\n🔄 เริ่ม Phase 2: ส่ง Data จริง")
         print(f"📡 Topic: {self.data_topic}")
         
         def send_data():

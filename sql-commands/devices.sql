@@ -1,4 +1,53 @@
 -- ================================================================
+-- USER MANAGEMENT TABLE
+-- ================================================================
+
+-- TABLE: USERS (สำหรับระบบ Authentication)
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    role VARCHAR(50) DEFAULT 'user',
+    is_active BOOLEAN DEFAULT true,
+    last_login TIMESTAMP WITHOUT TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for users table
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_last_login ON users(last_login);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_active ON users(is_active) WHERE is_active = true;
+
+-- Add comments for users table
+COMMENT ON TABLE users IS 'ตารางผู้ใช้งานระบบ IoT Electric Energy Monitoring';
+COMMENT ON COLUMN users.id IS 'รหัสผู้ใช้ (Primary Key)';
+COMMENT ON COLUMN users.email IS 'อีเมลสำหรับ login (Unique)';
+COMMENT ON COLUMN users.password_hash IS 'รหัสผ่านที่เข้ารหัสแล้ว';
+COMMENT ON COLUMN users.first_name IS 'ชื่อจริง';
+COMMENT ON COLUMN users.last_name IS 'นามสกุล';
+COMMENT ON COLUMN users.role IS 'บทบาทผู้ใช้ (user, admin, etc.)';
+COMMENT ON COLUMN users.is_active IS 'สถานะการใช้งาน (active/inactive)';
+COMMENT ON COLUMN users.last_login IS 'เวลา login ครั้งล่าสุด';
+COMMENT ON COLUMN users.created_at IS 'เวลาที่สร้างบัญชี';
+COMMENT ON COLUMN users.updated_at IS 'เวลาที่แก้ไขข้อมูลล่าสุด';
+
+-- Function to update user last login
+CREATE OR REPLACE FUNCTION update_user_last_login(user_email VARCHAR(255))
+RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE users 
+    SET last_login = CURRENT_TIMESTAMP 
+    WHERE email = user_email AND is_active = true;
+    
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ================================================================
 -- NORMALIZED DATABASE SCHEMA FOR ENERGY MONITORING SYSTEM (FIXED)
 -- ================================================================
 -- Normalization Level: 3NF (Third Normal Form)

@@ -332,8 +332,8 @@ export default function MeterManagementPage() {
                   ผู้ผลิต
                 </label>
                 <select
-                  value={formData.manufacturer_id}
-                  onChange={(e) => handleInputChange('manufacturer_id', parseInt(e.target.value))}
+                  value={formData.manufacturer_id || ''}
+                  onChange={(e) => handleInputChange('manufacturer_id', e.target.value === '' ? '' : parseInt(e.target.value))}
                   className="w-full border border-gray-300 rounded-md px-3 py-2"
                   required
                 >
@@ -391,8 +391,8 @@ export default function MeterManagementPage() {
 
                 {!createNewPowerSpec ? (
                   <select
-                    value={formData.power_spec_id}
-                    onChange={(e) => handleInputChange('power_spec_id', parseInt(e.target.value))}
+                    value={formData.power_spec_id || ''}
+                    onChange={(e) => handleInputChange('power_spec_id', e.target.value === '' ? '' : parseInt(e.target.value))}
                     className="w-full border border-gray-300 rounded-md px-3 py-2"
                     required
                   >
@@ -410,8 +410,8 @@ export default function MeterManagementPage() {
                         <label className="block text-xs text-gray-600 mb-1">แรงดัน (V)</label>
                         <input
                           type="number"
-                          value={formData.rated_voltage}
-                          onChange={(e) => handleInputChange('rated_voltage', parseFloat(e.target.value))}
+                          value={formData.rated_voltage || ''}
+                          onChange={(e) => handleInputChange('rated_voltage', e.target.value === '' ? '' : parseFloat(e.target.value))}
                           className="w-full border border-gray-300 rounded-md px-3 py-2"
                           required
                         />
@@ -420,8 +420,8 @@ export default function MeterManagementPage() {
                         <label className="block text-xs text-gray-600 mb-1">กระแส (A)</label>
                         <input
                           type="number"
-                          value={formData.rated_current}
-                          onChange={(e) => handleInputChange('rated_current', parseFloat(e.target.value))}
+                          value={formData.rated_current || ''}
+                          onChange={(e) => handleInputChange('rated_current', e.target.value === '' ? '' : parseFloat(e.target.value))}
                           className="w-full border border-gray-300 rounded-md px-3 py-2"
                           required
                         />
@@ -430,8 +430,8 @@ export default function MeterManagementPage() {
                         <label className="block text-xs text-gray-600 mb-1">กำลัง (W)</label>
                         <input
                           type="number"
-                          value={formData.rated_power}
-                          onChange={(e) => handleInputChange('rated_power', parseFloat(e.target.value))}
+                          value={formData.rated_power || ''}
+                          onChange={(e) => handleInputChange('rated_power', e.target.value === '' ? '' : parseFloat(e.target.value))}
                           className="w-full border border-gray-300 rounded-md px-3 py-2"
                           required
                         />
@@ -451,8 +451,8 @@ export default function MeterManagementPage() {
                         <label className="block text-xs text-gray-600 mb-1">ความถี่ (Hz)</label>
                         <input
                           type="number"
-                          value={formData.frequency}
-                          onChange={(e) => handleInputChange('frequency', parseFloat(e.target.value))}
+                          value={formData.frequency || ''}
+                          onChange={(e) => handleInputChange('frequency', e.target.value === '' ? '' : parseFloat(e.target.value))}
                           className="w-full border border-gray-300 rounded-md px-3 py-2"
                         />
                       </div>

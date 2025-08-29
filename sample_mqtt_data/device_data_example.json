@@ -36,9 +36,7 @@
   },
   
   "environmental_monitoring": {
-    "device_temperature": 35.2,
-    "ambient_temperature": null,
-    "humidity": null
+    "device_temperature": 35.2
   },
   
   "device_health": {

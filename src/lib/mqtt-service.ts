@@ -163,35 +163,50 @@ class MQTTService {
         return;
       }
 
-      // ตรวจสอบว่า device_id นี้มีในฐานข้อมูลแล้วหรือไม่
-      const existingDevice = await pool.query(
+      // ตรวจสอบว่า device_id นี้มีในอุปกรณ์ที่อนุมัติแล้วหรือไม่
+      const existingApproved = await pool.query(
         'SELECT device_id FROM devices_prop WHERE device_id = $1',
         [device_id]
       );
 
-      if (existingDevice.rows.length === 0) {
-        // ส่งการแจ้งเตือนเกี่ยวกับ device ใหม่
-        const notificationData = {
-          type: 'new_device_detected',
-          device_id: device_id,
-          topic: topic,
-          sample_data: {
-            voltage: data.voltage,
-            current: data.current || data.current_amperage,
-            power: data.power || data.active_power,
-            frequency: data.frequency,
-            temperature: data.temperature || data.device_temperature
-          },
-          timestamp: new Date().toISOString(),
-          message: `ตรวจพบอุปกรณ์ใหม่: ${device_id} จาก topic: ${topic}`
-        };
-
-        // ส่งการแจ้งเตือนผ่าน SSE ไปยัง admin dashboard
-        broadcastToSSE('admin/new-device-notification', notificationData);
-      } else {
-        // อุปกรณ์มีอยู่แล้ว ให้อัปเดตข้อมูล
+      if (existingApproved.rows.length > 0) {
+        console.log(`📋 Device ${device_id} already approved - updating device data`);
+        
+        // อัปเดตข้อมูลอุปกรณ์ที่อนุมัติแล้ว
         await this.updateDeviceData(device_id, data);
+        return; // อุปกรณ์อนุมัติแล้ว ไม่ต้องแจ้งเตือน
       }
+
+      // ตรวจสอบว่า device_id นี้มีใน pending list แล้วหรือไม่
+      const existingPending = await pool.query(
+        'SELECT device_id FROM devices_pending WHERE device_id = $1',
+        [device_id]
+      );
+
+      if (existingPending.rows.length > 0) {
+        console.log(`📋 Device ${device_id} already in pending list - skipping notification`);
+        return; // อุปกรณ์อยู่ใน pending list แล้ว
+      }
+
+      // ส่งการแจ้งเตือนเกี่ยวกับ device ใหม่ที่ยังไม่เคยเห็น
+      const notificationData = {
+        type: 'new_device_detected',
+        device_id: device_id,
+        topic: topic,
+        sample_data: {
+          voltage: data.voltage,
+          current: data.current || data.current_amperage,
+          power: data.power || data.active_power,
+          frequency: data.frequency,
+          temperature: data.temperature || data.device_temperature
+        },
+        timestamp: new Date().toISOString(),
+        message: `ตรวจพบอุปกรณ์ใหม่: ${device_id} จาก topic: ${topic}`
+      };
+
+      // ส่งการแจ้งเตือนผ่าน SSE ไปยัง admin dashboard
+      broadcastToSSE('admin/new-device-notification', notificationData);
+      
     } catch (error) {
       console.error('❌ Error checking new device:', error);
     }
@@ -239,6 +254,18 @@ class MQTTService {
 
       console.log('🔍 Extracted device info:', deviceInfo);
 
+      // Check if device already exists in approved devices (devices_prop)
+      const existingApproved = await pool.query(
+        'SELECT device_id FROM devices_prop WHERE device_id = $1',
+        [deviceInfo.device_id]
+      );
+
+      if (existingApproved.rows.length > 0) {
+        console.log(`📋 Device ${deviceInfo.device_id} already approved - sending config automatically`);
+        await this.sendConfigToApprovedDevice(deviceInfo.device_id);
+        return; // อุปกรณ์อนุมัติแล้ว ส่ง config และไม่ต้องแจ้งเตือน
+      }
+
       // Check if device already in pending list
       const existingPending = await pool.query(
         'SELECT device_id FROM devices_pending WHERE device_id = $1',
@@ -273,38 +300,61 @@ class MQTTService {
         
         console.log(`🔄 Updated pending device: ${deviceInfo.device_id}`);
       } else {
-        // Insert new pending device
-        await pool.query(`
-          INSERT INTO devices_pending (
-            device_id, device_name, device_type, ip_address, 
-            mac_address, firmware_version, connection_type,
-            approval_status_id, mqtt_data, discovered_at,
-            last_seen_at, discovery_source
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'mqtt')
-        `, [
-          deviceInfo.device_id,
-          deviceInfo.device_name || `Device ${deviceInfo.device_id}`,
-          deviceInfo.device_type,
-          deviceInfo.ip_address,
-          deviceInfo.mac_address,
-          deviceInfo.firmware_version,
-          deviceInfo.connection_type,
-          JSON.stringify(data)
-        ]);
-        
-        console.log(`✅ Added new pending device: ${deviceInfo.device_id}`);
-        
-        // Send notification to admin
-        const notificationData = {
-          type: 'new_device_pending',
-          device_id: deviceInfo.device_id,
-          device_name: deviceInfo.device_name || `Device ${deviceInfo.device_id}`,
-          topic: topic,
-          timestamp: new Date().toISOString(),
-          message: `อุปกรณ์ใหม่รอการอนุมัติ: ${deviceInfo.device_id}`
-        };
-        
-        broadcastToSSE('admin/device-pending-notification', notificationData);
+        // Double-check: ตรวจสอบอีกครั้งว่าไม่มีใน devices_prop ก่อนเพิ่มใน devices_pending
+        const doubleCheck = await pool.query(
+          'SELECT device_id FROM devices_prop WHERE device_id = $1',
+          [deviceInfo.device_id]
+        );
+
+        if (doubleCheck.rows.length > 0) {
+          console.log(`⚠️ Device ${deviceInfo.device_id} found in devices_prop during double-check - sending config`);
+          await this.sendConfigToApprovedDevice(deviceInfo.device_id);
+          return;
+        }
+
+        // Insert new pending device (with database trigger protection)
+        try {
+          await pool.query(`
+            INSERT INTO devices_pending (
+              device_id, device_name, device_type, ip_address, 
+              mac_address, firmware_version, connection_type,
+              approval_status_id, mqtt_data, discovered_at,
+              last_seen_at, discovery_source
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'mqtt')
+          `, [
+            deviceInfo.device_id,
+            deviceInfo.device_name || `Device ${deviceInfo.device_id}`,
+            deviceInfo.device_type,
+            deviceInfo.ip_address,
+            deviceInfo.mac_address,
+            deviceInfo.firmware_version,
+            deviceInfo.connection_type,
+            JSON.stringify(data)
+          ]);
+          
+          console.log(`✅ Added new pending device: ${deviceInfo.device_id}`);
+          
+          // Send notification to admin
+          const notificationData = {
+            type: 'new_device_pending',
+            device_id: deviceInfo.device_id,
+            device_name: deviceInfo.device_name || `Device ${deviceInfo.device_id}`,
+            topic: topic,
+            timestamp: new Date().toISOString(),
+            message: `อุปกรณ์ใหม่รอการอนุมัติ: ${deviceInfo.device_id}`
+          };
+          
+          broadcastToSSE('admin/device-pending-notification', notificationData);
+          
+        } catch (insertError: any) {
+          // หาก database trigger ป้องกันการเพิ่มข้อมูลซ้ำ
+          if (insertError.message?.includes('already exists in approved devices')) {
+            console.log(`🔄 Device ${deviceInfo.device_id} approved during insertion - sending config`);
+            await this.sendConfigToApprovedDevice(deviceInfo.device_id);
+          } else {
+            throw insertError; // re-throw หาก error อื่น
+          }
+        }
       }
       
     } catch (error) {
@@ -314,38 +364,114 @@ class MQTTService {
 
   private async updateDeviceData(device_id: string, data: any) {
     try {
+      console.log(`🔄 Updating devices_data for device: ${device_id}`);
+      console.log(`📊 Data structure:`, JSON.stringify(data, null, 2));
+
+      // Extract data from the new format structure
+      const electrical = data.electrical_measurements || {};
+      const threephase = data.three_phase_measurements || {};
+      const environmental = data.environmental_monitoring || {};
+      const health = data.device_health || {};
+      const energy = data.energy_measurements || {};
+
       // อัปเดตข้อมูลในตาราง devices_data
       const updateQuery = `
         UPDATE devices_data 
         SET 
-          voltage = COALESCE($1, voltage),
-          current_amperage = COALESCE($2, current_amperage),
-          power_factor = COALESCE($3, power_factor),
-          frequency = COALESCE($4, frequency),
-          active_power = COALESCE($5, active_power),
-          reactive_power = COALESCE($6, reactive_power),
-          apparent_power = COALESCE($7, apparent_power),
-          device_temperature = COALESCE($8, device_temperature),
-          network_status = 'online',
+          -- Network Status
+          network_status = COALESCE($1::network_status_enum, 'online'::network_status_enum),
+          connection_quality = COALESCE($2, connection_quality),
+          signal_strength = COALESCE($3, signal_strength),
+          
+          -- Basic Electrical Measurements
+          voltage = COALESCE($4, voltage),
+          current_amperage = COALESCE($5, current_amperage),
+          power_factor = COALESCE($6, power_factor),
+          frequency = COALESCE($7, frequency),
+          
+          -- Power Measurements
+          active_power = COALESCE($8, active_power),
+          reactive_power = COALESCE($9, reactive_power),
+          apparent_power = COALESCE($10, apparent_power),
+          
+          -- 3-Phase Measurements
+          voltage_phase_b = COALESCE($11, voltage_phase_b),
+          voltage_phase_c = COALESCE($12, voltage_phase_c),
+          current_phase_b = COALESCE($13, current_phase_b),
+          current_phase_c = COALESCE($14, current_phase_c),
+          power_factor_phase_b = COALESCE($15, power_factor_phase_b),
+          power_factor_phase_c = COALESCE($16, power_factor_phase_c),
+          active_power_phase_a = COALESCE($17, active_power_phase_a),
+          active_power_phase_b = COALESCE($18, active_power_phase_b),
+          active_power_phase_c = COALESCE($19, active_power_phase_c),
+          
+          -- Environmental & Health
+          device_temperature = COALESCE($20, device_temperature),
+          uptime_hours = COALESCE($21, uptime_hours),
+          
+          -- Energy Measurements
+          total_energy = COALESCE($22, total_energy),
+          daily_energy = COALESCE($23, daily_energy),
+          
+          -- System Updates
           last_data_received = CURRENT_TIMESTAMP,
-          data_collection_count = data_collection_count + 1,
+          data_collection_count = COALESCE($24, data_collection_count + 1),
           updated_at = CURRENT_TIMESTAMP
-        WHERE device_id = $9
+        WHERE device_id = $25
       `;
       
       const values = [
-        data.voltage,
-        data.current || data.current_amperage,
-        data.power_factor,
-        data.frequency,
-        data.power || data.active_power,
-        data.reactive_power,
-        data.apparent_power,
-        data.temperature || data.device_temperature,
-        device_id
+        // Network Status
+        data.network_status || 'online',                    // $1
+        data.connection_quality,                            // $2  
+        data.signal_strength,                               // $3
+        
+        // Basic Electrical Measurements
+        electrical.voltage,                                 // $4
+        electrical.current_amperage,                        // $5
+        electrical.power_factor,                            // $6
+        electrical.frequency,                               // $7
+        
+        // Power Measurements  
+        electrical.active_power,                            // $8
+        electrical.reactive_power,                          // $9
+        electrical.apparent_power,                          // $10
+        
+        // 3-Phase Measurements
+        threephase.voltage_phase_b,                         // $11
+        threephase.voltage_phase_c,                         // $12
+        threephase.current_phase_b,                         // $13
+        threephase.current_phase_c,                         // $14
+        threephase.power_factor_phase_b,                    // $15
+        threephase.power_factor_phase_c,                    // $16
+        threephase.active_power_phase_a,                    // $17
+        threephase.active_power_phase_b,                    // $18
+        threephase.active_power_phase_c,                    // $19
+        
+        // Environmental & Health
+        environmental.device_temperature,                   // $20
+        health.uptime_hours,                               // $21
+        
+        // Energy Measurements
+        electrical.total_energy || energy.total_energy_import, // $22
+        electrical.daily_energy || energy.daily_energy_import, // $23
+        
+        // System
+        health.data_collection_count,                       // $24
+        device_id                                          // $25
       ];
       
-      await pool.query(updateQuery, values);
+      const result = await pool.query(updateQuery, values);
+      
+      if (result.rowCount === 0) {
+        console.log(`⚠️ No rows updated for device ${device_id}, device might not exist in devices_data`);
+      } else {
+        console.log(`✅ Successfully updated devices_data for ${device_id}`);
+        const powerKW = electrical.active_power ? (electrical.active_power / 1000).toFixed(1) : 'N/A';
+        const voltage = electrical.voltage ? electrical.voltage.toFixed(1) : 'N/A';
+        const current = electrical.current_amperage ? electrical.current_amperage.toFixed(1) : 'N/A';
+        console.log(`📊 Power: ${powerKW}kW | Voltage: ${voltage}V | Current: ${current}A`);
+      }
       
     } catch (error) {
       console.error(`❌ Error updating device data for ${device_id}:`, error);
@@ -379,6 +505,79 @@ class MQTTService {
         }
       });
     });
+  }
+
+  private async sendConfigToApprovedDevice(device_id: string) {
+    try {
+      console.log(`📤 Sending config to approved device: ${device_id}`);
+      
+      // Get device details from devices_prop
+      const deviceQuery = `
+        SELECT 
+          dp.*,
+          f.faculty_name,
+          f.faculty_code
+        FROM devices_prop dp
+        LEFT JOIN faculties f ON dp.faculty_id = f.id
+        WHERE dp.device_id = $1
+      `;
+      
+      const result = await pool.query(deviceQuery, [device_id]);
+      
+      if (result.rows.length === 0) {
+        console.error(`❌ Device ${device_id} not found in devices_prop`);
+        return;
+      }
+      
+      const device = result.rows[0];
+      
+      // Create config message
+      const configMessage = {
+        device_id: device.device_id,
+        device_name: device.device_name || device.device_id,
+        faculty: device.faculty_code || 'general',
+        faculty_name: device.faculty_name || 'ทั่วไป',
+        location: {
+          building: device.building || 'N/A',
+          floor: device.floor || 'N/A',
+          room: device.room || 'N/A'
+        },
+        power_limit: device.power_limit || 3000,
+        data_interval: 15,
+        approved: true,
+        config_sent_at: new Date().toISOString(),
+        message: "Device already approved - Configuration sent automatically"
+      };
+      
+      // Determine faculty for topic
+      let faculty = device.faculty_code;
+      
+      // If no faculty_code, try to determine from device_id pattern
+      if (!faculty) {
+        if (device_id.includes('ENGR') || device_id.includes('ENG')) {
+          faculty = 'engineering';
+        } else if (device_id.includes('MED')) {
+          faculty = 'medicine';
+        } else if (device_id.includes('SCI')) {
+          faculty = 'science';
+        } else if (device_id.includes('BUS')) {
+          faculty = 'business';
+        } else {
+          faculty = 'general';
+        }
+        console.log(`🔍 Determined faculty from device_id: ${faculty}`);
+      }
+      
+      const configTopic = `devices/${faculty}/${device_id}/config`;
+      
+      // Send config via MQTT
+      await this.publish(configTopic, JSON.stringify(configMessage, null, 2));
+      
+      console.log(`✅ Config sent to ${device_id} via topic: ${configTopic}`);
+      
+    } catch (error) {
+      console.error(`❌ Error sending config to ${device_id}:`, error);
+    }
   }
 
   public async disconnect() {

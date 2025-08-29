@@ -14,6 +14,37 @@ const pool = new Pool({
   statement_timeout: 15000, // timeout สำหรับ statement
 });
 
+// Export pool สำหรับ advanced usage
+export { pool };
+
+// Transaction-safe function สำหรับ complex operations
+export const withTransaction = async <T>(
+  callback: (client: any) => Promise<T>
+): Promise<T> => {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    console.log('🔄 Transaction started');
+    
+    const result = await callback(client);
+    
+    await client.query('COMMIT');
+    console.log('✅ Transaction committed');
+    
+    return result;
+    
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ Transaction rolled back:', error);
+    throw error;
+    
+  } finally {
+    client.release();
+    console.log('🔓 Database connection released');
+  }
+};
+
 // ฟังก์ชันสำหรับ query database พร้อม retry mechanism
 export const query = async (text: string, params?: any[], retries: number = 3) => {
   const start = Date.now();

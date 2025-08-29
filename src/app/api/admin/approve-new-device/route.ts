@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/database';
+import { query, pool } from '@/lib/database';
 
 // POST /api/admin/approve-new-device - อนุมัติอุปกรณ์ใหม่
 export async function POST(request: NextRequest) {
@@ -145,38 +145,46 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/admin/approve-new-device - ดึงรายการ meter models สำหรับ dropdown
+// GET /api/admin/approve-new-device - ดึงรายการ meters ที่ว่างสำหรับ dropdown
 export async function GET() {
   try {
-    const meterModelsQuery = `
+    const availableMetersQuery = `
       SELECT 
-        meter_model_id,
-        model_name,
-        manufacturer,
-        meter_type,
-        power_phase,
-        rated_voltage,
-        rated_current,
-        rated_power
-      FROM meter_prop 
-      ORDER BY model_name
+        mp.meter_id,
+        mp.model_name,
+        m.name AS manufacturer,
+        mp.meter_type,
+        ps.power_phase,
+        ps.rated_voltage,
+        ps.rated_current,
+        ps.rated_power,
+        CASE 
+          WHEN dp.meter_id IS NOT NULL THEN false
+          ELSE true
+        END AS available
+      FROM meter_prop mp
+      JOIN manufacturers m ON mp.manufacturer_id = m.id
+      JOIN power_specifications ps ON mp.power_spec_id = ps.id
+      LEFT JOIN devices_prop dp ON mp.meter_id = dp.meter_id
+      WHERE dp.meter_id IS NULL  -- เฉพาะ meters ที่ยังไม่ได้ใช้
+      ORDER BY mp.model_name, mp.meter_id
     `;
     
-    const result = await pool.query(meterModelsQuery);
+    const result = await query(availableMetersQuery);
     
     return NextResponse.json({
       success: true,
       data: {
-        meter_models: result.rows
+        available_meters: result.rows
       }
     });
     
   } catch (error) {
-    console.error('[ERROR] Get Meter Models API - Error:', error);
+    console.error('[ERROR] Get Available Meters API - Error:', error);
     
     return NextResponse.json({
       success: false,
-      message: 'เกิดข้อผิดพลาดในการดึงข้อมูลรุ่นมิเตอร์',
+      message: 'เกิดข้อผิดพลาดในการดึงข้อมูลมิเตอร์ที่ว่าง',
       error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }

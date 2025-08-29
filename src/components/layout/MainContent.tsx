@@ -12,7 +12,6 @@ import UserModal from '@/components/ui/UserModal';
 import ConfirmDeleteModal from '@/components/ui/ConfirmDeleteModal';
 import RealtimeDashboard from '@/components/dashboard/RealtimeDashboard';
 import SystemCheckDashboard from '@/components/dashboard/SystemCheckDashboard';
-import NotificationBell from '@/components/ui/NotificationBell';
 import DeviceApprovalPage from '@/app/admin/device-approval/page';
 import ResponsiblePersons from '@/components/admin/ResponsiblePersons';
 import MeterManagementPage from '@/app/admin/meter-management/page';
@@ -36,6 +35,23 @@ interface APIResponse {
   error?: boolean;
   message?: string;
 }
+
+// Helper function to determine online/offline status based on timestamp
+function getConnectionStatus(lastDataReceived?: string): 'online' | 'offline' {
+  if (!lastDataReceived) return 'offline';
+  
+  const now = new Date();
+  const lastData = new Date(lastDataReceived);
+  const diffInMinutes = (now.getTime() - lastData.getTime()) / (1000 * 60);
+  
+  return diffInMinutes <= 1 ? 'online' : 'offline';
+}
+
+// Status display mappings
+const CONNECTION_STATUS_NAMES = {
+  'online': 'ออนไลน์',
+  'offline': 'ออฟไลน์'
+} as const;
 
 export default forwardRef<MainContentRef, MainContentProps>(function MainContent({ activeMenu }, ref) {
   const [readmeContent, setReadmeContent] = useState<string>('');
@@ -109,7 +125,7 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
   // Devices management hook
   const { 
     devices, 
-    stats: deviceStats, 
+    stats: _deviceStats, 
     loading: devicesLoading, 
     error: devicesError, 
     refetch: refreshDevices 
@@ -197,7 +213,7 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
       }
       
       // Refresh users list
-      await refreshUsers();
+      refreshUsers();
       
       // Close modal
       setUserModal({ isOpen: false, mode: 'add', user: null });
@@ -233,7 +249,7 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
 
     try {
       await userAPI.deleteUser(deleteModal.user.id);
-      await refreshUsers();
+      refreshUsers();
       
       // Close modal and show success
       setDeleteModal({ isOpen: false, user: null, isLoading: false });
@@ -269,14 +285,13 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
     setDeleteDeviceModal(prev => ({ ...prev, isLoading: true }));
 
     try {
-      const response = await fetch('/api/admin/delete-device', {
+      console.log('🗑️ Deleting device from MainContent:', deleteDeviceModal.device.device_id);
+      
+      const response = await fetch(`/api/admin/devices/${encodeURIComponent(deleteDeviceModal.device.device_id)}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          device_id: deleteDeviceModal.device.device_id
-        })
+        }
       });
 
       // Check if response is ok
@@ -285,7 +300,7 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
         let errorMessage = `HTTP Error: ${response.status} ${response.statusText}`;
         try {
           const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
+          if (contentType?.includes('application/json')) {
             const errorData = await response.json();
             errorMessage = errorData.message || errorMessage;
           } else {
@@ -495,6 +510,16 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
   );
 
   const renderDevices = () => {
+    // Return early if devices is not available
+    if (!devices || !Array.isArray(devices)) {
+      return (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading devices...</p>
+        </div>
+      );
+    }
+
     // Filter devices based on selected faculty
     const filteredDevices = selectedFaculty === 'all' 
       ? devices 
@@ -510,10 +535,10 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
       return acc;
     }, {} as Record<string, typeof devices>);
 
-    const faculties = Object.keys(devicesByFaculty).sort();
+    const faculties = Object.keys(devicesByFaculty).sort((a, b) => a.localeCompare(b));
     
     // Get all available faculties for filter dropdown
-    const allFaculties = [...new Set(devices.map(device => device.faculty))].sort();
+    const allFaculties = devices ? [...new Set(devices.map(device => device.faculty))].sort((a, b) => a.localeCompare(b)) : [];
 
     return (
       <div className="space-y-4 sm:space-y-6">
@@ -556,11 +581,11 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
                   onChange={(e) => setSelectedFaculty(e.target.value)}
                   className="block w-full sm:w-64 pl-3 pr-10 py-2 text-sm sm:text-base bg-white border border-gray-300 text-gray-900 focus:outline-none focus:ring-blue-400 focus:border-blue-400 rounded-md"
                 >
-                  <option value="all" className="bg-white text-gray-900">🌍 All Faculties ({devices.length} devices)</option>
+                  <option value="all" className="bg-white text-gray-900">🌍 All Faculties ({devices?.length || 0} devices)</option>
                   {allFaculties.map((faculty) => (
                     <option key={faculty} value={faculty} className="bg-white text-gray-900">
                       {FACULTY_NAMES[faculty as keyof typeof FACULTY_NAMES] || faculty} 
-                      ({devices.filter(d => d.faculty === faculty).length} devices)
+                      ({devices?.filter(d => d.faculty === faculty).length || 0} devices)
                     </option>
                   ))}
                 </select>
@@ -604,25 +629,25 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
               {selectedFaculty === 'all' ? 'Total Devices' : 'Filtered Devices'}
             </h3>
             <p className="text-lg sm:text-2xl font-bold text-blue-900">
-              {devicesLoading ? '...' : filteredDevices.length}
+              {devicesLoading ? '...' : (filteredDevices?.length || 0)}
             </p>
           </div>
           <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
             <h3 className="text-xs sm:text-sm font-medium text-green-800">Active Devices</h3>
             <p className="text-lg sm:text-2xl font-bold text-green-900">
-              {devicesLoading ? '...' : filteredDevices.filter(d => d.status === 'active').length}
+              {devicesLoading ? '...' : (filteredDevices?.filter(d => d.status === 'active').length || 0)}
             </p>
           </div>
           <div className="bg-yellow-50 p-3 sm:p-4 rounded-lg">
             <h3 className="text-xs sm:text-sm font-medium text-yellow-800">Online Devices</h3>
             <p className="text-lg sm:text-2xl font-bold text-yellow-900">
-              {devicesLoading ? '...' : filteredDevices.filter(d => d.network_status === 'online').length}
+              {devicesLoading ? '...' : (filteredDevices?.filter(d => d.network_status === 'online').length || 0)}
             </p>
           </div>
           <div className="bg-purple-50 p-3 sm:p-4 rounded-lg">
             <h3 className="text-xs sm:text-sm font-medium text-purple-800">Offline Devices</h3>
             <p className="text-lg sm:text-2xl font-bold text-purple-900">
-              {devicesLoading ? '...' : filteredDevices.filter(d => d.network_status === 'offline').length}
+              {devicesLoading ? '...' : (filteredDevices?.filter(d => d.network_status === 'offline').length || 0)}
             </p>
           </div>
         </div>
@@ -683,7 +708,7 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
                     </svg>
                     <p className="text-blue-100">
                       Showing devices for: <strong className="text-white">{FACULTY_NAMES[selectedFaculty as keyof typeof FACULTY_NAMES] || selectedFaculty}</strong>
-                      {' '}({filteredDevices.length} devices)
+                      {' '}({filteredDevices?.length || 0} devices)
                     </p>
                   </div>
                 </div>
@@ -723,7 +748,7 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
                           Meter Type
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
+                          Status & Connection
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Position
@@ -764,20 +789,25 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              device.status === 'active' ? 'bg-green-100 text-green-800' : 
-                              device.status === 'inactive' ? 'bg-red-100 text-red-800' : 
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {STATUS_NAMES[device.status as keyof typeof STATUS_NAMES] || device.status}
-                            </span>
-                            {device.network_status && (
-                              <span className={`ml-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                device.network_status === 'online' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            <div className="flex flex-col gap-1">
+                              {/* Device Status (เปิด/ปิดใช้งาน) */}
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                device.status === 'active' ? 'bg-green-100 text-green-800' : 
+                                device.status === 'inactive' ? 'bg-red-100 text-red-800' : 
+                                'bg-yellow-100 text-yellow-800'
                               }`}>
-                                {STATUS_NAMES[device.network_status as keyof typeof STATUS_NAMES] || device.network_status}
+                                {STATUS_NAMES[device.status as keyof typeof STATUS_NAMES] || device.status}
                               </span>
-                            )}
+                              
+                              {/* Connection Status (online/offline) */}
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                getConnectionStatus(device.last_data_received) === 'online' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {CONNECTION_STATUS_NAMES[getConnectionStatus(device.last_data_received)]}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {device.position || (device.building && device.floor && device.room ? 
@@ -874,12 +904,21 @@ export default forwardRef<MainContentRef, MainContentProps>(function MainContent
                               }`}>
                                 {METER_TYPE_NAMES[device.meter_type as keyof typeof METER_TYPE_NAMES] || device.meter_type}
                               </span>
+                              {/* Device Status (เปิด/ปิดใช้งาน) */}
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                                 device.status === 'active' ? 'bg-green-100 text-green-800' : 
                                 device.status === 'inactive' ? 'bg-red-100 text-red-800' : 
                                 'bg-yellow-100 text-yellow-800'
                               }`}>
                                 {STATUS_NAMES[device.status as keyof typeof STATUS_NAMES] || device.status}
+                              </span>
+                              {/* Connection Status (online/offline) */}
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                getConnectionStatus(device.last_data_received) === 'online' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {CONNECTION_STATUS_NAMES[getConnectionStatus(device.last_data_received)]}
                               </span>
                             </div>
                           </div>

@@ -1,0 +1,25 @@
+{
+  "saved_timestamp": "2025-08-29T00:46:08.900978+00:00",
+  "device_id": "ESP32_ENGR_LAB_001",
+  "config": {
+    "device_id": "ESP32_ENGR_LAB_001",
+    "approved": true,
+    "registration_datetime": "2025-08-29T00:46:08.860Z",
+    "meter_info": {
+      "meter_id": "10",
+      "meter_model_name": "Smart Meter Pro",
+      "meter_manufacturer": "Industrial Solutions",
+      "rated_voltage": "380.00",
+      "rated_current": "100.00",
+      "rated_power": "75000.00",
+      "power_phase": "three"
+    },
+    "location_info": {
+      "faculty_name": "คณะวิศวกรรมศาสตร์",
+      "building": "1",
+      "floor": "1",
+      "room": "1"
+    },
+    "admin_notes": ""
+  }
+}

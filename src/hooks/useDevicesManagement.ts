@@ -110,6 +110,7 @@ export const useDevicesManagement = (): UseDevicesResult => {
 
   const fetchDevices = async () => {
     try {
+      console.log('🔄 useDevicesManagement: Starting fetch...');
       setLoading(true);
       setError(null);
 
@@ -120,18 +121,28 @@ export const useDevicesManagement = (): UseDevicesResult => {
         },
       });
 
+      console.log('📡 useDevicesManagement: Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result: DevicesResponse = await response.json();
+      console.log('📄 useDevicesManagement: Response data:', result);
 
       if (result.success) {
+        console.log('✅ useDevicesManagement: Setting devices:', result.data.devices.length, 'items');
         setDevices(result.data.devices);
         setStats(result.data.stats);
       } else {
+        console.error('❌ useDevicesManagement: API returned error:', result.message);
         setError(result.message);
       }
     } catch (err) {
-      console.error('Error fetching devices:', err);
+      console.error('💥 useDevicesManagement: Error fetching devices:', err);
       setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
     } finally {
+      console.log('🏁 useDevicesManagement: Fetch completed, setting loading to false');
       setLoading(false);
     }
   };

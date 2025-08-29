@@ -31,6 +31,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900`}
       >
         {children}
+        {/* Development test script */}
+        {process.env.NODE_ENV === 'development' && (
+          <script src="/test-delete-api.js" async />
+        )}
       </body>
     </html>
   );
