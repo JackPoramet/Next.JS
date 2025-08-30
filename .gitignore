@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test artifacts & reports
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# large screenshots (optional to keep tracked; ignore new ones)
+screenshots/
+
+# temp/backup files
+*.backup.*
+*.new

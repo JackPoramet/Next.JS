@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/store/authStore';
 
@@ -41,13 +40,7 @@ export default function LoginForm() {
             เข้าสู่ระบบ
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            หรือ{' '}
-            <Link
-              href="/register"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              สมัครสมาชิกใหม่
-            </Link>
+            ระบบจัดการพลังงานไฟฟ้า IoT
           </p>
         </div>
 
@@ -105,6 +98,16 @@ export default function LoginForm() {
               ) : (
                 'เข้าสู่ระบบ'
               )}
+            </button>
+          </div>
+
+          <div className="text-center">
+            <button
+              type="button"
+              className="text-sm text-indigo-600 hover:text-indigo-500 font-medium"
+              onClick={() => alert('ฟีเจอร์ลืมรหัสผ่านจะเปิดใช้งานในเร็วๆ นี้')}
+            >
+              ลืมรหัสผ่าน?
             </button>
           </div>
 

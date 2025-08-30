@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
   const handleDeviceApproved = () => {
     // Force refresh of devices when a new device is approved
-    if (mainContentRef.current && mainContentRef.current.refreshDevices) {
+    if (mainContentRef.current?.refreshDevices) {
       mainContentRef.current.refreshDevices();
     }
     // Also refresh when on devices page
@@ -79,10 +79,12 @@ export default function DashboardPage() {
       onDeviceApproved={handleDeviceApproved}
       onNavigateToDeviceApproval={handleNavigateToDeviceApproval}
     >
-      <MainContent 
-        activeMenu={activeMenu} 
-        ref={mainContentRef}
-      />
+      <div data-testid="dashboard">
+        <MainContent 
+          activeMenu={activeMenu} 
+          ref={mainContentRef}
+        />
+      </div>
     </DashboardLayout>
   );
 }

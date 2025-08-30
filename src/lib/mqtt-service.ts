@@ -1,5 +1,4 @@
 import mqtt from 'mqtt';
-import { broadcastToSSE } from './sse-service';
 import pool from './database';
 import { getCleanupService } from './cleanup-service';
 
@@ -137,9 +136,6 @@ class MQTTService {
           console.log(`📊 Processing /data message for device: ${data.device_id}`);
           await this.checkNewDevice(data, topic);
         }
-
-        // Broadcast to all SSE clients
-        broadcastToSSE(topic, data);
         
       } catch (error) {
         console.error('❌ Error processing MQTT message:', error);
@@ -204,8 +200,7 @@ class MQTTService {
         message: `ตรวจพบอุปกรณ์ใหม่: ${device_id} จาก topic: ${topic}`
       };
 
-      // ส่งการแจ้งเตือนผ่าน SSE ไปยัง admin dashboard
-      broadcastToSSE('admin/new-device-notification', notificationData);
+      console.log('📋 New device detected notification:', notificationData);
       
     } catch (error) {
       console.error('❌ Error checking new device:', error);
@@ -334,7 +329,7 @@ class MQTTService {
           
           console.log(`✅ Added new pending device: ${deviceInfo.device_id}`);
           
-          // Send notification to admin
+          // Log notification to admin
           const notificationData = {
             type: 'new_device_pending',
             device_id: deviceInfo.device_id,
@@ -344,7 +339,7 @@ class MQTTService {
             message: `อุปกรณ์ใหม่รอการอนุมัติ: ${deviceInfo.device_id}`
           };
           
-          broadcastToSSE('admin/device-pending-notification', notificationData);
+          console.log('📋 Device pending notification:', notificationData);
           
         } catch (insertError: any) {
           // หาก database trigger ป้องกันการเพิ่มข้อมูลซ้ำ
@@ -487,7 +482,7 @@ class MQTTService {
 
   public async publish(topic: string, message: string, options: { qos?: 0 | 1 | 2, retain?: boolean } = {}): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (!this.mqttClient || !this.mqttClient.connected) {
+      if (!this.mqttClient?.connected) {
         reject(new Error('MQTT client not connected'));
         return;
       }

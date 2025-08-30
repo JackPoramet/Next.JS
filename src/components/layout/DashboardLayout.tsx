@@ -3,16 +3,17 @@
 import { useState, ReactNode } from 'react';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import MobileNavBar from './MobileNavBar';
 
 interface DashboardLayoutProps {
-  children: ReactNode;
-  userEmail: string;
-  userRole: string;
-  activeMenu: string;
-  onMenuChange: (menuId: string) => void;
-  onLogout: () => void;
-  onDeviceApproved?: () => void;
-  onNavigateToDeviceApproval?: () => void;
+  readonly children: ReactNode;
+  readonly userEmail: string;
+  readonly userRole: string;
+  readonly activeMenu: string;
+  readonly onMenuChange: (menuId: string) => void;
+  readonly onLogout: () => void;
+  readonly onDeviceApproved?: () => void;
+  readonly onNavigateToDeviceApproval?: () => void;
 }
 
 export default function DashboardLayout({
@@ -36,15 +37,27 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 transition-colors">
-      {/* Navbar */}
-      <Navbar 
-        userEmail={userEmail}
-        userRole={userRole}
-        onToggleSidebar={toggleSidebar}
-        onDeviceApproved={onDeviceApproved}
-        onNavigateToDeviceApproval={onNavigateToDeviceApproval}
-      />
+    <div className="min-h-screen bg-gray-50">
+      {/* Desktop Navbar */}
+      <div className="hidden md:block">
+        <Navbar 
+          userEmail={userEmail}
+          userRole={userRole}
+          onToggleSidebar={toggleSidebar}
+          onDeviceApproved={onDeviceApproved}
+          onNavigateToDeviceApproval={onNavigateToDeviceApproval}
+        />
+      </div>
+
+      {/* Mobile Top/Bottom Navigation */}
+      <div className="md:hidden">
+        <MobileNavBar
+          userRole={userRole}
+          onToggleSidebar={toggleSidebar}
+          activeMenu={activeMenu}
+          onNavigateToDeviceApproval={onNavigateToDeviceApproval}
+        />
+      </div>
 
       {/* Sidebar */}
       <Sidebar
@@ -58,8 +71,8 @@ export default function DashboardLayout({
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+      <main className="max-w-7xl mx-auto transition-all px-3 sm:px-6 lg:px-8 pt-16 pb-20 md:pt-0 md:pb-0">
+        <div className="py-4 md:py-6 text-gray-900">
           {children}
         </div>
       </main>

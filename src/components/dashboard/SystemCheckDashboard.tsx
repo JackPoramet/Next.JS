@@ -491,9 +491,9 @@ export default function SystemCheckDashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="bg-white shadow rounded-lg p-4 sm:p-6">
+      <div className="bg-card shadow rounded-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">🔧 System Check Dashboard</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">🔧 System Check Dashboard</h2>
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
             <button 
               onClick={checkAllSystems}
@@ -524,7 +524,7 @@ export default function SystemCheckDashboard() {
               {systemStatus.database.status}
             </p>
             {systemStatus.database.lastCheck && (
-              <p className="text-xs text-gray-500 mt-1">Last: {systemStatus.database.lastCheck}</p>
+              <p className="text-xs text-muted-foreground mt-1">Last: {systemStatus.database.lastCheck}</p>
             )}
           </div>
           
@@ -543,7 +543,7 @@ export default function SystemCheckDashboard() {
               {systemStatus.mqtt.status}
             </p>
             {systemStatus.mqtt.lastCheck && (
-              <p className="text-xs text-gray-500 mt-1">Last: {systemStatus.mqtt.lastCheck}</p>
+              <p className="text-xs text-muted-foreground mt-1">Last: {systemStatus.mqtt.lastCheck}</p>
             )}
           </div>
           
@@ -562,7 +562,7 @@ export default function SystemCheckDashboard() {
               {systemStatus.sse.status}
             </p>
             {systemStatus.sse.lastCheck && (
-              <p className="text-xs text-gray-500 mt-1">Last: {systemStatus.sse.lastCheck}</p>
+              <p className="text-xs text-muted-foreground mt-1">Last: {systemStatus.sse.lastCheck}</p>
             )}
           </div>
           
@@ -581,24 +581,24 @@ export default function SystemCheckDashboard() {
               {systemStatus.api.status}
             </p>
             {systemStatus.api.lastCheck && (
-              <p className="text-xs text-gray-500 mt-1">Last: {systemStatus.api.lastCheck}</p>
+              <p className="text-xs text-muted-foreground mt-1">Last: {systemStatus.api.lastCheck}</p>
             )}
           </div>
         </div>
       </div>
 
       {/* API Testing Section */}
-      <div className="bg-white shadow rounded-lg p-4 sm:p-6">
+      <div className="bg-card shadow rounded-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">🧪 API Endpoint Testing</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">🧪 API Endpoint Testing</h2>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Select API Endpoint</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Select API Endpoint</h3>
             
             <select
-              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm text-gray-900 font-medium"
+              className="w-full p-3 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-ring bg-background text-sm text-foreground font-medium"
               value={selectedEndpoint}
               onChange={(e) => {
                 const selected = apiEndpoints.find(ep => ep.endpoint === e.target.value);
@@ -728,9 +728,9 @@ export default function SystemCheckDashboard() {
       </div>
 
       {/* MQTT Topic Monitoring Section */}
-      <div className="bg-white shadow rounded-lg p-4 sm:p-6">
+      <div className="bg-card shadow rounded-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">📡 MQTT Topic Monitor</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">📡 MQTT Topic Monitor</h2>
           <div className="flex items-center space-x-4">
             <span className={`px-2 py-1 rounded text-xs font-medium ${
               mqttConnectionStatus === 'connected' ? 'bg-green-100 text-green-800' :

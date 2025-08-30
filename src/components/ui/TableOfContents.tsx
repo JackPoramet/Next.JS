@@ -1,6 +1,4 @@
-'use client';
-
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface TocItem {
   id: string;
@@ -13,6 +11,26 @@ interface TableOfContentsProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const getButtonBaseStyles = (level: number): string => {
+  if (level === 1) {
+    return 'font-semibold text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700';
+  } else if (level === 2) {
+    return 'font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600';
+  } else {
+    return 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-2 border-transparent hover:border-gray-200 dark:hover:border-gray-700';
+  }
+};
+
+const getActiveButtonStyles = (level: number, isActive: boolean): string => {
+  if (!isActive) return '';
+  
+  if (level === 1) {
+    return 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-l-4 border-blue-500 dark:border-blue-400 shadow-sm';
+  } else {
+    return 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border-l-4 border-blue-400 dark:border-blue-500';
+  }
+};
 
 export default function TableOfContents({ content, isOpen, onClose }: TableOfContentsProps) {
   const [tocItems, setTocItems] = useState<TocItem[]>([]);
@@ -142,18 +160,18 @@ export default function TableOfContents({ content, isOpen, onClose }: TableOfCon
       {/* TOC Sidebar */}
       <div 
         ref={sidebarRef}
-        className={`fixed top-0 left-0 h-full w-80 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-40 border-r border-gray-200 ${
+        className={`fixed top-0 left-0 h-full w-80 bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out z-40 border-r border-gray-200 dark:border-gray-700 ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
               📋 <span className="ml-2">Table of Contents</span>
             </h3>
             <button
               onClick={onClose}
-              className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-white transition-all duration-200"
+              className="lg:hidden p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-all duration-200"
               aria-label="Close Table of Contents"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,7 +179,7 @@ export default function TableOfContents({ content, isOpen, onClose }: TableOfCon
               </svg>
             </button>
           </div>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             {tocItems.length} sections
           </p>
         </div>
@@ -177,17 +195,9 @@ export default function TableOfContents({ content, isOpen, onClose }: TableOfCon
                   <button
                     onClick={() => scrollToHeading(item.id)}
                     className={`block w-full text-left py-2 px-3 rounded-md text-sm transition-all duration-200 group ${
-                      item.level === 1 
-                        ? 'font-semibold text-gray-900 hover:bg-gray-100' 
-                        : item.level === 2 
-                        ? 'font-medium text-gray-700 hover:bg-gray-50 border-l-2 border-transparent hover:border-gray-300' 
-                        : 'text-gray-600 hover:bg-gray-50 border-l-2 border-transparent hover:border-gray-200'
+                      getButtonBaseStyles(item.level)
                     } ${
-                      activeId === item.id 
-                        ? item.level === 1
-                          ? 'bg-blue-100 text-blue-700 border-l-4 border-blue-500 shadow-sm'
-                          : 'bg-blue-50 text-blue-600 border-l-4 border-blue-400'
-                        : ''
+                      getActiveButtonStyles(item.level, activeId === item.id)
                     }`}
                     style={{
                       paddingLeft: `${0.75 + (item.level - 1) * 1}rem`,
@@ -202,7 +212,7 @@ export default function TableOfContents({ content, isOpen, onClose }: TableOfCon
                         : 'text-xs'
                     }`}>
                       {item.level > 1 && (
-                        <span className="text-gray-400 mr-2">
+                        <span className="text-gray-400 dark:text-gray-500 mr-2">
                           {item.level === 2 ? '↳' : '⤷'}
                         </span>
                       )}

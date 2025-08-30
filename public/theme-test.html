@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Theme Test</title>
+  <style>
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 0 0% 3.9%;
+    }
+    
+    .dark {
+      --background: 0 0% 3.9%;
+      --foreground: 0 0% 98%;
+    }
+    
+    body {
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
+    
+    button {
+      padding: 10px 20px;
+      border: 1px solid hsl(var(--foreground));
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    button:hover {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <h1>Theme Toggle Test</h1>
+  <p>This is a test to verify theme switching works properly.</p>
+  <button onclick="toggleTheme()">Toggle Theme</button>
+  
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const body = document.body;
+      
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        body.classList.remove('dark');
+        html.classList.add('light');
+        body.classList.add('light');
+        localStorage.setItem('theme', 'light');
+        console.log('Switched to light theme');
+      } else {
+        html.classList.remove('light');
+        body.classList.remove('light');
+        html.classList.add('dark');
+        body.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+        console.log('Switched to dark theme');
+      }
+    }
+    
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.classList.add(savedTheme);
+    document.body.classList.add(savedTheme);
+  </script>
+</body>
+</html>

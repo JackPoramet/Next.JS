@@ -2,8 +2,6 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { ghcolors } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { Components } from 'react-markdown';
 import { useState, useEffect } from 'react';
 import MermaidDiagram from './MermaidDiagram';
@@ -77,24 +75,11 @@ export default function GitHubMarkdown({ children, className = '' }: GitHubMarkd
               Copy
             </button>
           </div>
-          <SyntaxHighlighter
-            style={ghcolors}
-            language={language}
-            PreTag="div"
-            className="!m-0 !rounded-none"
-            showLineNumbers={false}
-            wrapLines={true}
-            customStyle={{
-              margin: 0,
-              borderRadius: 0,
-              background: '#f8f9fa',
-              fontSize: '14px',
-              lineHeight: '1.6',
-              padding: '16px'
-            }}
-          >
-            {String(children).replace(/\n$/, '')}
-          </SyntaxHighlighter>
+          <pre className="bg-gray-50 p-4 overflow-x-auto">
+            <code className="text-sm font-mono text-gray-800 leading-relaxed">
+              {String(children).replace(/\n$/, '')}
+            </code>
+          </pre>
         </div>
       ) : (
         <code className="bg-gray-100 text-red-600 px-2 py-1 rounded text-sm font-mono border">
